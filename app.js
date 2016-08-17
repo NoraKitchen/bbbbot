@@ -1,30 +1,31 @@
 'use strict';
 
 const 
-  bodyParser = require('body-parser'),
-  config = require('config'),
-  crypto = require('crypto'),
-  express = require('express'),
-  https = require('https'),
-  http = require('http'),  
-  request = require('request');
+      bodyParser = require('body-parser'),
+      config = require('config'),
+      crypto = require('crypto'),
+      express = require('express'),
+      https = require('https'),
+      http = require('http'),  
+      request = require('request');
   
-var app = express();
+let app = express(),
+    SearchPoint = require('./searchPointClass');
+
 app.set('port', process.env.PORT || 5000);
-app.set('view engine', 'ejs');
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
 app.use(express.static('public'));
 
 // SEARCHING OBJECT CONSTUCTOR
 // This search point is an object includes nessesary data from user
-function SearchPoint() {
-  this.name = false;
-  this.category = false;
-  this.city = false;
-  this.state = false;
-  this.zip = false;
-  this.userId = false;
-}
+// function SearchPoint() {
+//   this.name = false;
+//   this.category = false;
+//   this.city = false;
+//   this.state = false;
+//   this.zip = false;
+//   this.userId = false;
+// }
 
 // BBB api token 
 const API_TOKEN = config.get('token');
