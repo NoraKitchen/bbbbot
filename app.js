@@ -9,8 +9,8 @@ const
     request = require('request');
   
 let app = express(),
-    SearchPoint = require('./searchpoint'),
-    BBBapi = require('./bbbapi');
+    SearchPoint = require('./searchpoint');
+let BBBapi = require('./bbbapi');
 
 app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
@@ -323,40 +323,20 @@ function receivedPostback(event) {
 // SHOW RESPONCE FROM BBB API
 function showListOfBusiness(sp) {
   let breq = new BBBapi();
-  let newElements = breq.createList(sp, API_TOKEN);
-  console.log(newElements);
+  let newElements = [];
+  breq.createList(sp, API_TOKEN, function(data){
 
-  // var count = list.length; // count of elements should be more 0 and less 10 items
+    if(!data) {sendTextMessage(sp.userId, "Sorry, nothing")
+      } else {
+        let messageData = {
+          recipient: { id: sp.userId },
+          message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
+        };  
+        callSendAPI(messageData);
+        console.log("Send list of business to sender " + sp.userId);
+  }})};
+ 
 
-  // if (count > 10) count = 10;
-  // if (count == 0)  { sendTextMessage (recipientId, "Sorry, we didn't find anything. Try again");
-  // } else  { sendList (count) };
-
-  // function sendList (newCount) {
-  //   var newElements =[];
-  //   for(var i=0; i < newCount; i++) {
-  //   var curr = list[i];
-  //   var obj = new Object();
-
-  //     obj.title = curr.OrganizationName;
-  //     obj.subtitle = curr.Address +" ,"+curr.City+" ,"+curr.StateProvince;
-  //     obj.buttons = [];
-  //     var secObj = new Object();
-  //     secObj.type = "web_url";
-  //     secObj.url = curr.ReportURL;
-  //     secObj.title = "More information";
-  //     obj.buttons.push(secObj);
-  //     newElements.push(obj);
-  //   }
-
-  var messageData = {
-    recipient: { id: sp.userId },
-    message: { attachment: { type: "template", payload: { template_type: "generic", elements: newElements }}}
-  };  
-  callSendAPI(messageData);
-  
-  console.log("Send list of business with" + count + "number to sender "+recipientId);
-};
 
 
 /*Message Read Event
@@ -373,7 +353,6 @@ function receivedMessageRead(event) {
 }
 
 //////////// Send a text message using the Send API.
-
 function sendTextMessage(recipientId, messageText) {
   var messageData = {
     recipient: { id: recipientId },
@@ -381,6 +360,7 @@ function sendTextMessage(recipientId, messageText) {
   };
   callSendAPI(messageData);
 }
+
 
 /// Call the Send API. The message data goes in the body. 
 /// If successful, we'll get the message id in a response 
@@ -408,63 +388,52 @@ function callSendAPI(messageData) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
-// BBB.org API
-function makeLink (sp){
-    var reqLink = '';
-    if(sp.name) reqLink +='&PrimaryOrganizationName='+sp.name;
-    if(sp.city) reqLink += '&City='+sp.city;
-    if(sp.state) reqLink+= '&StateProvince='+sp.state;
-    if (sp.category) reqLink += "&PrimaryCategory="+sp.category;
-    if(sp.zip) reqLink += '&PostalCode='+sp.zip;
-
-  findBusiness(reqLink, function (somedata) {
-
-    if(somedata =="NoData") {
-      sendTextMessage(sp.userId,"Sorry no data for this request")
-    } else {
-      showListOfBusiness(sp.userId, somedata);
-    }
-  });
-};
-
-function findBusiness(reqLink, callback) {
-
-    var options = {
-        host: 'api.bbb.org',
-        port: 443,
-        path: '/api/orgs/search?PageSize=10'+reqLink,
-        method: 'GET',
-        headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13',
-        'Authorization': API_TOKEN
-        }
-    };
-    
-    var request = https.request(options, function(response){
-        console.log('Status: ' + response.statusCode);
-        response.setEncoding('utf8');
-        var body = "";
-        response.on('data', (chunk) => body+=chunk);
-
-        response.on("end", function () {
-            var nodes = JSON.parse(body);
-            if(nodes.TotalResults)  console.log("Total Results: " + nodes.TotalResults);
-            if(nodes.SearchResults) callback(nodes.SearchResults);
-        });
-    });
-
-    request.on('error', function(error) {
-        console.log('problem with request: ' + error.message);
-        });
-    request.end();
-};
-
-
-
+// // BBB.org API
+// function makeLink (sp){
+//     var reqLink = '';
+//     if(sp.name) reqLink +='&PrimaryOrganizationName='+sp.name;
+//     if(sp.city) reqLink += '&City='+sp.city;
+//     if(sp.state) reqLink+= '&StateProvince='+sp.state;
+//     if (sp.category) reqLink += "&PrimaryCategory="+sp.category;
+//     if(sp.zip) reqLink += '&PostalCode='+sp.zip;
+//
+//   findBusiness(reqLink, function (somedata) {
+//       showListOfBusiness(sp.userId, somedata);
+//   })};
+//
+// function findBusiness(reqLink, callback) {
+//
+//     var options = {
+//         host: 'api.bbb.org',
+//         port: 443,
+//         path: '/api/orgs/search?PageSize=10'+reqLink,
+//         method: 'GET',
+//         headers: {
+//         'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13',
+//         'Authorization': API_TOKEN
+//     }};
+//
+//     var request = https.request(options, function(response){
+//         console.log('Status: ' + response.statusCode);
+//         response.setEncoding('utf8');
+//         var body = "";
+//         response.on('data', (chunk) => body+=chunk);
+//         response.on("end", function () {
+//             var nodes = JSON.parse(body);
+//             if(nodes.TotalResults)  console.log("Total Results: " + nodes.TotalResults);
+//             if(nodes.SearchResults) callback(nodes.SearchResults);
+//         });
+//     });
+//
+//     request.on('error', function(error) {
+//         console.log('problem with request: ' + error.message);
+//         });
+//     request.end();
+// };
 ////////////////////////////////////////////////////////////////////////
+
 app.listen(app.get('port'), function() {
   console.log('Node app is running on port', app.get('port'));
 });
 
-module.exports = app;
 
