@@ -1,57 +1,46 @@
 'use strict';
+const https = require('https');
 
 // BBB API searching
 // This object take SearchPoint object and return array of businesses
 class BBBapi {
+    
+    constructor() {
+    };
 
-  constructor(name, option) {
-      this.name = false;
-      this.category = false;
-      this.city = false;
-      this.state = false;
-      this.zip = false;
-      this.userId = false;
-  }
-}
-/*
-function makeLink (sp){
-    var reqLink = '';
-    if(sp.name) reqLink +='&PrimaryOrganizationName='+sp.name;
-    if(sp.city) reqLink += '&City='+sp.city;
-    if(sp.state) reqLink+= '&StateProvince='+sp.state;
-    if (sp.category) reqLink += "&PrimaryCategory="+sp.category;
-    if(sp.zip) reqLink += '&PostalCode='+sp.zip;
-
-  findBusiness(reqLink, function (somedata) {
-    if(somedata =="NoData") {
-      sendTextMessage(sp.userId,"Sorry no data for this request")
-    } else {
-      showListOfBusiness(sp.userId, somedata);
+// CREATE A NEW PATH FOR REQUEST
+    makeLink (searchPoint){
+      let link = '/api/orgs/search?PageSize=10'
+      if(searchPoint.name)        link +='&PrimaryOrganizationName='+searchPoint.name;
+      if(searchPoint.city)        link += '&City='+searchPoint.city;
+      if(searchPoint.state)       link += '&StateProvince='+searchPoint.state;
+      if (searchPoint.category)   link += "&PrimaryCategory="+searchPoint.category;
+      if(searchPoint.zip)         link += '&PostalCode='+searchPoint.zip;
+      return link;
     }
-  });
-};
+// REQUEST TO BBB API
+    callBBBapi (path, token, callback) {
 
-function findBusiness(reqLink, callback) {
-
-    var options = {
+    let options = {
         host: 'api.bbb.org',
         port: 443,
-        path: '/api/orgs/search?PageSize=10'+reqLink,
+        path: path,
         method: 'GET',
         headers: {
         'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13',
-        'Authorization': API_TOKEN
+        'Authorization': token
         }
     };
     
-    var request = https.request(options, function(response){
+    let request = https.request(options, function(response){
         console.log('Status: ' + response.statusCode);
         response.setEncoding('utf8');
-        var body = "";
+        let body = '';
+
         response.on('data', (chunk) => body+=chunk);
 
-        response.on("end", function () {
-            var nodes = JSON.parse(body);
+        response.on('end', function () {
+            let nodes = JSON.parse(body);
             if(nodes.TotalResults)  console.log("Total Results: " + nodes.TotalResults);
             if(nodes.SearchResults) callback(nodes.SearchResults);
         });
@@ -59,8 +48,36 @@ function findBusiness(reqLink, callback) {
 
     request.on('error', (error) => {console.log('problem with request: '+error.message)});
     request.end();
-};
-*/
+    };
 
+
+// CREATE A NEW LIST OF BUSINESSES AFTER API OR 'FALSE'
+    createList (searchPoint, token){
+      // NEW LINK
+      let newLink = this.makeLink(searchPoint);
+      //API REQUEST
+      this.callBBBapi(newLink, token, function (list) {
+
+        if (list.length == 0) return false;
+
+        let newList = [];
+        for(let i=0; i < list.length; i++) {
+          let curr = list[i];
+          let obj = new Object();
+
+          obj.title = curr.OrganizationName;
+          obj.subtitle = curr.Address +" ,"+curr.City+" ,"+curr.StateProvince;
+          obj.buttons = [];
+          let secObj = new Object();
+            secObj.type = "web_url";
+            secObj.url = curr.ReportURL;
+            secObj.title = "More information";
+            obj.buttons.push(secObj);
+            newList.push(obj);
+          }
+      return newList  
+      });
+    };
+};
 
 module.exports = BBBapi;

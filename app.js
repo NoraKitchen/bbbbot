@@ -6,12 +6,11 @@ const
     crypto = require('crypto'),
     express = require('express'),
     https = require('https'),
-    http = require('http'),  
     request = require('request');
   
 let app = express(),
     SearchPoint = require('./searchpoint'),
-    BBBapi = require('.bbbapi');
+    BBBapi = require('./bbbapi');
 
 app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
@@ -58,20 +57,16 @@ app.post('/webhook', function (req, res) {
   
   // Make sure this is a page subscription
   if (data.object == 'page') {
-    data.entry.forEach(function(pageEntry) {
+      data.entry.forEach(function(pageEntry) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
 
       // Iterate over each messaging event
       pageEntry.messaging.forEach(function(messagingEvent) {
-        if (messagingEvent.message) {
-          receivedMessage(messagingEvent);
-        } else if (messagingEvent.delivery) {
-          receivedDeliveryConfirmation(messagingEvent);
-        } else if (messagingEvent.postback) {
-          receivedPostback(messagingEvent);
-        } else if (messagingEvent.read) {
-          receivedMessageRead(messagingEvent);
+        if (messagingEvent.message)         {receivedMessage(messagingEvent);
+        } else if (messagingEvent.delivery) {receivedDeliveryConfirmation(messagingEvent);
+        } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
+        } else if (messagingEvent.read)     {receivedMessageRead(messagingEvent);
         } else {
           console.log("Webhook received unknown messagingEvent: ", messagingEvent);
         }
@@ -84,7 +79,7 @@ app.post('/webhook', function (req, res) {
 //WELCOME SCREEN BUTTON
 request({
     method: 'POST',
-    uri: 'https://graph.facebook.com/v2.7/me/thread_settings?access_token=' + PAGE_ACCESS_TOKEN,
+    uri: 'https://graph.facebook.com/v2.7/me/thread_settings?access_token='+PAGE_ACCESS_TOKEN,
     qs: {
         setting_type: 'call_to_actions',
         thread_state: 'new_thread',
@@ -127,7 +122,7 @@ function startConversation(recipientId){
                         buttons:[
                           { type: "postback", title: "Name of business", payload: "SEARCH_BY_NAME" },
                           { type: "postback", title: "Category",         payload: "SEARCH_BY_CATEGORY"},
-                          { type: "web_url",  title: "OR visit our site", url: "http://www.bbb.org/northwest/"}
+                          { type: "web_url",  title: "OR visit our site", url: "https://www.bbb.org/northwest/"}
                           ]
                     }
                   }
@@ -208,8 +203,8 @@ function receivedMessage(event) {
       case 'ID':               
       case 'MT':
       case 'WY':
-        sp.state = quickReply.payload;
-        askCity(senderID);
+        sp.setState(quickReply.payload);
+        callSendAPI(sp.askCity(senderID));
         break;        
     }
     return;
@@ -218,25 +213,25 @@ function receivedMessage(event) {
   if (messageText) {
 
     if(sp.name == 200) {
-      sp.name = messageText.trim();
-      sp.category = false;
-      askLocation(senderID);
+      sp.setName(messageText.trim());
+      sp.setCategory(false);
+      callSendAPI(sp.askLocation(senderID));
     }
     if(sp.category == 300){
       sp.category = messageText.trim();
       sp.name = false;
-      askLocation(senderID)
+      callSendAPI(sp.askLocation(senderID));
     }
     if(sp.zip == 600) {
       sp.zip = parseInt(messageText.trim());
       sp.city = false;
       sp.state = false;
-      makeLink(sp);
+      showListOfBusiness(sp);
     }
     if(sp.city == 700) {
       sp.city = messageText.trim();
       sp.zip = false;
-      makeLink(sp);
+      showListOfBusiness(sp);
     }
   
     switch (messageText) {
@@ -326,37 +321,42 @@ function receivedPostback(event) {
 
 
 // SHOW RESPONCE FROM BBB API
-function showListOfBusiness(recipientId, list) {
+function showListOfBusiness(sp) {
+  let breq = new BBBapi();
+  let newElements = breq.createList(sp, API_TOKEN);
+  console.log(newElements);
 
-  var count = list.length; // count of elements should be more 0 and less 10 items
+  // var count = list.length; // count of elements should be more 0 and less 10 items
 
-  if (count > 10) count = 10;
-  if (count == 0)  { sendTextMessage (recipientId, "Sorry, we didn't find anything. Try again");
-  } else (count) => {
-    
-    var newElements =[];
-    for(var i=0; i < count; i++) {
-      var curr = list[i];
-      var obj = new Object();
-      obj.title = curr.OrganizationName;
-      obj.subtitle = curr.Address +" ,"+curr.City+" ,"+curr.StateProvince;
-      obj.buttons = [];
-      var secObj = new Object();
-      secObj.type = "web_url";
-      secObj.url = curr.ReportURL;
-      secObj.title = "More information";
-      obj.buttons.push(secObj);
-      newElements.push(obj);
-    }
+  // if (count > 10) count = 10;
+  // if (count == 0)  { sendTextMessage (recipientId, "Sorry, we didn't find anything. Try again");
+  // } else  { sendList (count) };
+
+  // function sendList (newCount) {
+  //   var newElements =[];
+  //   for(var i=0; i < newCount; i++) {
+  //   var curr = list[i];
+  //   var obj = new Object();
+
+  //     obj.title = curr.OrganizationName;
+  //     obj.subtitle = curr.Address +" ,"+curr.City+" ,"+curr.StateProvince;
+  //     obj.buttons = [];
+  //     var secObj = new Object();
+  //     secObj.type = "web_url";
+  //     secObj.url = curr.ReportURL;
+  //     secObj.title = "More information";
+  //     obj.buttons.push(secObj);
+  //     newElements.push(obj);
+  //   }
 
   var messageData = {
-    recipient: { id: recipientId },
+    recipient: { id: sp.userId },
     message: { attachment: { type: "template", payload: { template_type: "generic", elements: newElements }}}
   };  
   callSendAPI(messageData);
   
   console.log("Send list of business with" + count + "number to sender "+recipientId);
-}};
+};
 
 
 /*Message Read Event
@@ -418,6 +418,7 @@ function makeLink (sp){
     if(sp.zip) reqLink += '&PostalCode='+sp.zip;
 
   findBusiness(reqLink, function (somedata) {
+
     if(somedata =="NoData") {
       sendTextMessage(sp.userId,"Sorry no data for this request")
     } else {

@@ -50,7 +50,7 @@ class SearchPoint {
 
   // ASK STATE
   askState (recipientId) {
-    sp.setState(500);
+    this.setState(500);
     let messageData = {
       recipient: { id: recipientId },
       message: {
