@@ -21,24 +21,16 @@ app.use(express.static('public'));
 const API_TOKEN = config.get('token');
 
 // App Secret can be retrieved from the App Dashboard
-const APP_SECRET = (process.env.MESSENGER_APP_SECRET) ? 
-  process.env.MESSENGER_APP_SECRET :
-  config.get('appSecret');
+const APP_SECRET = (process.env.MESSENGER_APP_SECRET) ? process.env.MESSENGER_APP_SECRET : config.get('appSecret');
 
 // Arbitrary value used to validate a webhook
-const VALIDATION_TOKEN = (process.env.MESSENGER_VALIDATION_TOKEN) ?
-  (process.env.MESSENGER_VALIDATION_TOKEN) :
-  config.get('validationToken');
+const VALIDATION_TOKEN = (process.env.MESSENGER_VALIDATION_TOKEN) ? (process.env.MESSENGER_VALIDATION_TOKEN) : config.get('validationToken');
 
 // Generate a page access token for your page from the App Dashboard
-const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ?
-  (process.env.MESSENGER_PAGE_ACCESS_TOKEN) :
-  config.get('pageAccessToken');
+const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ? (process.env.MESSENGER_PAGE_ACCESS_TOKEN) : config.get('pageAccessToken');
 
 // URL where the app is running (include protocol). Used to point to scripts and assets located at this address. 
-const SERVER_URL = (process.env.SERVER_URL) ?
-  (process.env.SERVER_URL) :
-  config.get('serverURL');
+const SERVER_URL = (process.env.SERVER_URL) ? (process.env.SERVER_URL) : config.get('serverURL');
 
 if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL)) {
   console.error("Missing config values");
@@ -48,13 +40,12 @@ if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL)) {
 
 // SETUP WEBHOOK
 app.get('/webhook', function(req, res) {
-  if (req.query['hub.mode'] === 'subscribe' &&
-      req.query['hub.verify_token'] === VALIDATION_TOKEN) {
-    console.log("Validating webhook");
-    res.status(200).send(req.query['hub.challenge']);
-  } else {
-    console.error("Failed validation. Make sure the validation tokens match.");
-    res.sendStatus(403);          
+  if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === VALIDATION_TOKEN) {
+      console.log("Validating webhook");
+      res.status(200).send(req.query['hub.challenge']);
+      } else {
+      console.error("Failed validation. Make sure the validation tokens match.");
+      res.sendStatus(403);          
   }  
 });
 
@@ -316,104 +307,21 @@ function receivedPostback(event) {
           startConversation(senderID);
           break;
       case 'SEARCH_BY_NAME':
-          askName(senderID);
+          callSendAPI(sp.askName(senderID));
           break;
       case 'SEARCH_BY_CATEGORY':
-          askCategory(senderID);
+          callSendAPI(sp.askCategory(senderID));
           break;
       case 'LOCATION_STATE':
-          askState(senderID);
+          callSendAPI(sp.askState(senderID));
           break;
       case 'LOCATION_ZIP':
-          askZip(senderID);
+          callSendAPI(sp.askZip(senderID));
           break;
       default:
         sendTextMessage(senderID, "Postback called");
     }
   }
-};
-
-// ASK COMPANY NAME
-  function askName(recipientId) {
-    sp.name = 200;
-    var messageData = {
-      recipient: { id: recipientId },
-      message: { text: "Fill out name" }
-    };
-    callSendAPI(messageData);
-  };
-
-// ASK CATEGORY
-  function askCategory(recipientId) {
-    sp.category=300;
-    var messageData = {
-      recipient: { id: recipientId },
-      message: { text: "Fill out category" }
-    };
-    callSendAPI(messageData);
-  }
-
-// ASK STATE
-  function askState(recipientId) {
-    sp.state = 500;
-    var messageData = {
-      recipient: {
-        id: recipientId
-      },
-      message: {
-        text: "Please choose the state",
-        metadata: "STATE",
-        quick_replies: [
-          {"content_type":"text", "title":"Alaska",     "payload":"AK"},
-          {"content_type":"text", "title":"Washington", "payload":"WA"},
-          {"content_type":"text", "title":"Oregon",     "payload":"OR"},
-          {"content_type":"text", "title":"Idaho",       "payload":"ID"},
-          {"content_type":"text", "title":"Montana",     "payload":"MT"},  
-          {"content_type":"text", "title":"Wyoming",     "payload":"WY"}
-        ]
-      }
-    };
-    callSendAPI(messageData);
-  };
-
-// ASK CITY
-  function askCity(recipientId) {
-    sp.city = 700;
-    var messageData = {
-      recipient: { id: recipientId },
-      message: { text: "Add city" }
-    };
-    callSendAPI(messageData);
-  };
-
-// ASK ZIP
-  function askZip(recipientId) {
-    sp.zip = 600;
-    var messageData = {
-      recipient: { id: recipientId },
-      message: { text: "Add post code" }
-    };
-    callSendAPI(messageData);
-  }
-
-// ASK LOCATION
-function askLocation(recipientId) {
-  var messageData = {
-    recipient: {
-      id: recipientId
-    },
-    message: {
-      attachment: {
-        type: "template",
-          payload: {
-            template_type: "button",
-            text:  "Please add a location",
-              buttons:[
-                { type: "postback", title: "City, State", payload: "LOCATION_STATE"},
-                { type: "postback", title: "Post code", payload: "LOCATION_ZIP"}
-                ]
-  }}}};
-  callSendAPI(messageData);
 };
 
 
@@ -424,35 +332,32 @@ function showListOfBusiness(recipientId, list) {
 
   if (count > 10) count = 10;
   if (count == 0)  { sendTextMessage (recipientId, "Sorry, we didn't find anything. Try again");
-  } else  { sendList (count) };
-
-
-function sendList (newCount) {
-  var newElements =[];
-  for(var i=0; i < newCount; i++) {
-    var curr = list[i];
-    var obj = new Object();
-
-  obj.title = curr.OrganizationName;
-  obj.subtitle = curr.Address +" ,"+curr.City+" ,"+curr.StateProvince;
-  obj.buttons = [];
-  var secObj = new Object();
-  secObj.type = "web_url";
-  secObj.url = curr.ReportURL;
-  secObj.title = "More information";
-  obj.buttons.push(secObj);
-  newElements.push(obj);
-}
+  } else (count) => {
+    
+    var newElements =[];
+    for(var i=0; i < count; i++) {
+      var curr = list[i];
+      var obj = new Object();
+      obj.title = curr.OrganizationName;
+      obj.subtitle = curr.Address +" ,"+curr.City+" ,"+curr.StateProvince;
+      obj.buttons = [];
+      var secObj = new Object();
+      secObj.type = "web_url";
+      secObj.url = curr.ReportURL;
+      secObj.title = "More information";
+      obj.buttons.push(secObj);
+      newElements.push(obj);
+    }
 
   var messageData = {
     recipient: { id: recipientId },
-    message: {
-      attachment: { type: "template", payload: { template_type: "generic", elements: newElements }
-  }}};  
-    callSendAPI(messageData);
-  }
+    message: { attachment: { type: "template", payload: { template_type: "generic", elements: newElements }}}
+  };  
+  callSendAPI(messageData);
+  
   console.log("Send list of business with" + count + "number to sender "+recipientId);
-}
+}};
+
 
 /*Message Read Event
  *
