@@ -12,7 +12,7 @@ let app = express(),
     SearchPoint = require('./searchpoint'),
     BBBapi = require('./bbbapi');
 let Datastore = require('nedb'),
-    db = new Datastore({ filename: 'data/db.json', autoload: true });
+    db = new Datastore({ filename: 'data/users', autoload: true });
     db.loadDatabase(function (err) { console.log(" DB error :" + err);
   });
 
@@ -76,44 +76,30 @@ app.get('/webhook', function(req, res) {
  * https://developers.facebook.com/docs/messenger-platform/product-overview/setup#subscribe_app */
 app.post('/webhook', function (req, res) {
   var data = req.body;
-  var sp = new SearchPoint();
-  var senderID = data.entry[0].messaging[0].sender.id;
-  sp.userId = senderID;
-  var z = new Object();
-    z.name = sp.name;
-    z.city = sp.city;
-    z.state = sp.state;
-    z.userId = sp.userId;
-    z.category = sp.category;
-    z.zip = sp.zip;
-  var doc = {    hello: 'world'
-               , n: 5
-               , today: new Date()
-               , nedbIsAwesome: true
-               , notthere: null
-               };
-  db.insert(z);
-  db.insert(doc, function (err, newDoc) {   // Callback is optional 
-  // newDoc is the newly inserted document, including its _id 
-  // newDoc has no key called notToBeSaved since its value was undefined 
-  });
 
-  db.find({ userId: senderID }, function (err, user) {
-    console.log(" found" + user);
-  });
-  
   // Make sure this is a page subscription
   if (data.object == 'page') {
       data.entry.forEach(function(pageEntry) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
+      var senderID = pageEntry.messaging[0].sender.id;
+
+      db.find({ userId: senderID}, function (err, user) {
+        if(!user) {
+          var sp = new SearchPoint();
+          sp.userId = senderID;
+          db.insert(sp);
+        } else {
+          var sp = user;
+        }
+      });
 
       // Iterate over each messaging event
       pageEntry.messaging.forEach(function(messagingEvent) {
-        if (messagingEvent.message)         {receivedMessage(messagingEvent);
-        } else if (messagingEvent.delivery) {receivedDeliveryConfirmation(messagingEvent);
-        } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
+        if (messagingEvent.message)         {receivedMessage(messagingEvent, sp);
+        } else if (messagingEvent.postback) {receivedPostback(messagingEvent,sp);
         } else if (messagingEvent.read)     {receivedMessageRead(messagingEvent);
+        } else if (messagingEvent.delivery) {receivedDeliveryConfirmation(messagingEvent);
         } else {
           console.log("Webhook received unknown messagingEvent: ", messagingEvent);
         }
