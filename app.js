@@ -83,34 +83,27 @@ app.post('/webhook', function (req, res) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
       var senderID = pageEntry.messaging[0].sender.id;
-      var sp = new SearchPoint();
 
       if (senderID != '1130241563714158') {
 
-        db.find({ userId: senderID}, function (err, user) {
-
-          if(user.length !=0) { 
-            console.log(" FOUND " + user.userId);
-            sp = user;
+      db.find({ userId: senderID}, function (err, user) {
+        if(user.length == 0) { 
+            var sp = new SearchPoint();
+            sp.userId = senderID;
+            db.insert(sp);
+        }
+        // Iterate over each messaging event
+        pageEntry.messaging.forEach(function(messagingEvent) {
+          if (messagingEvent.message)         {receivedMessage(messagingEvent);
+          } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
+          } else if (messagingEvent.read)     {receivedMessageRead(messagingEvent);
+          } else if (messagingEvent.delivery) {receivedDeliveryConfirmation(messagingEvent);
           } else {
-              sp
-              sp.userId = senderID;
-              db.insert(sp);
+            console.log("Webhook received unknown messagingEvent: ", messagingEvent);
           }
         });
-      }
-
-
-      // Iterate over each messaging event
-      pageEntry.messaging.forEach(function(messagingEvent) {
-        if (messagingEvent.message)         {receivedMessage(messagingEvent, sp);
-        } else if (messagingEvent.postback) {receivedPostback(messagingEvent,sp);
-        } else if (messagingEvent.read)     {receivedMessageRead(messagingEvent);
-        } else if (messagingEvent.delivery) {receivedDeliveryConfirmation(messagingEvent);
-        } else {
-          console.log("Webhook received unknown messagingEvent: ", messagingEvent);
-        }
       });
+      }
     });
     res.sendStatus(200);
   }
@@ -184,16 +177,17 @@ function verifyRequestSignature(req, res, buf) {
  * object format can vary depending on the kind of message that was received.
  * Read more at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
  */
-function receivedMessage(event, sp) {
+function receivedMessage(event) {
   var senderID = event.sender.id;
   var recipientID = event.recipient.id;
   var timeOfMessage = event.timestamp;
   var message = event.message;
+  let sp = new SearchPoint();
+  db.find({ userId: senderID}, function (err, user) {sp = user[0]});
 
   console.log("Received message for user %d and page %d at %d with message:",senderID, recipientID, timeOfMessage);
   console.log(JSON.stringify(message));
 
-  var isEcho = message.is_echo;
   var messageId = message.mid;
   var appId = message.app_id;
   var metadata = message.metadata;
@@ -203,15 +197,12 @@ function receivedMessage(event, sp) {
   var messageAttachments = message.attachments;
   var quickReply = message.quick_reply;
 
-  if (isEcho) {
-    // Just logging message echoes to console
-    console.log("Received echo for message %s and app %d with metadata %s", messageId, appId, metadata);
-    return;
-  } else if (quickReply) {
+   
+  if (quickReply) {
     var quickReplyPayload = quickReply.payload;
     console.log("Quick reply for message %s with payload %s", messageId, quickReplyPayload);
 
-// WHAEN WE ASK A STATE AND RESPONSE IS ONE OF THEM
+    // WHAEN WE ASK A STATE AND RESPONSE IS ONE OF THEM
     switch (quickReply.payload) {
       case 'AK': 
       case 'WA': 
@@ -273,26 +264,7 @@ function receivedMessage(event, sp) {
 }
 
 
-/*Delivery Confirmation Event
- *
- * This event is sent to confirm the delivery of a message. Read more about 
- * these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
- */
-function receivedDeliveryConfirmation(event) {
-  var senderID = event.sender.id;
-  var recipientID = event.recipient.id;
-  var delivery = event.delivery;
-  var messageIDs = delivery.mids;
-  var watermark = delivery.watermark;
-  var sequenceNumber = delivery.seq;
 
-  if (messageIDs) {
-    messageIDs.forEach(function(messageID) {
-      console.log("Received delivery confirmation for message ID: %s", messageID);
-    });
-  }
-  console.log("All message before %d were delivered.", watermark);
-}
 
 
 /////// POSTBACK EVENT
@@ -301,20 +273,22 @@ function receivedDeliveryConfirmation(event) {
  * https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
  * 
  */
-function receivedPostback(event, sp) {
+function receivedPostback(event) {
 
   var senderID = event.sender.id;
   var recipientID = event.recipient.id;
   var timeOfPostback = event.timestamp;
   var payload = event.postback.payload;
-
+  let sp = new SearchPoint();
   console.log("Received postback for user %d and page %d with payload '%s' at %d", senderID, recipientID, payload, timeOfPostback);
 
- ///// SEARCH BY ITEM
+  db.find({ userId: senderID}, function (err, user) {
+    sp.reload(user[0]);
+  
+  ///// SEARCH BY ITEM
   if (payload) {
     switch (payload) {
       case 'GET_START':
-          sp.userId = senderID;
           startConversation(senderID);
           break;
       case 'SEARCH_BY_NAME':
@@ -329,10 +303,10 @@ function receivedPostback(event, sp) {
       case 'LOCATION_ZIP':
           callSendAPI(sp.askZip(senderID));
           break;
-      default:
-        sendTextMessage(senderID, "Postback called");
-    }
-  }
+  }}});
+
+  db.remove({ userId: senderID}, { multi: true });
+  db.insert(sp);
 };
 
 
@@ -354,23 +328,33 @@ function showListOfBusiness(sp) {
   breq ={};
 };
  
+//////////////////////////////////////////////////////////////
+///////////// FACEBOOK FUNCTIONS /////////////////////////////
 
+// DELIVERY CONFIRMATION EVENT. This event is sent to confirm the delivery of a message.
+// Read more about these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
 
+function receivedDeliveryConfirmation(event) {
+  var delivery = event.delivery;
+  var messageIDs = delivery.mids;
+  var watermark = delivery.watermark;
 
-/*Message Read Event
- *
- * This event is called when a previously-sent message has been read.
- * https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-read
- */
+  if (messageIDs) {
+    messageIDs.forEach(function(messageID) { console.log("Received delivery confirmation for message ID: %s", messageID)});
+  }
+  console.log("All message before %d were delivered.", watermark);
+}
+
+// MESSAGE READ EVENT. This event is called when a previously-sent message has been read.
+// Read more about these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-read
+ 
 function receivedMessageRead(event) {
-  var senderID = event.sender.id;
-  var recipientID = event.recipient.id;
   var watermark = event.read.watermark;
   var sequenceNumber = event.read.seq;
   console.log("Received message read event for watermark %d and sequence number %d", watermark, sequenceNumber);
 }
 
-//////////// Send a text message using the Send API.
+// SEND A TEXT MESSAGE
 function sendTextMessage(recipientId, messageText) {
   var messageData = {
     recipient: { id: recipientId },
@@ -379,9 +363,8 @@ function sendTextMessage(recipientId, messageText) {
   callSendAPI(messageData);
 }
 
-
-/// Call the Send API. The message data goes in the body. 
-/// If successful, we'll get the message id in a response 
+// CALL THE SEND API. The message data goes in the body. 
+// If successful, we'll get the message id in a response.
 function callSendAPI(messageData) {
   request({
     uri: 'https://graph.facebook.com/v2.7/me/messages',
@@ -405,8 +388,10 @@ function callSendAPI(messageData) {
   });  
 }
 
+//////////////////////////////////////////////////////////////////////
+// START SERVER
 app.listen(app.get('port'), function() {
-  console.log('Node app is running on port', app.get('port'));
+  console.log('Facebook bot app is running on port', app.get('port'));
 });
 
 

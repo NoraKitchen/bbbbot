@@ -86,6 +86,15 @@ class SearchPoint {
     return messageData;
   };
 
+  reload(user){
+    this.name = user.name;
+    this.category = user.category;
+    this.city = user.city;
+    this.state = user.state;
+    this.zip = user.zip;
+    this.userId = user.userId;
+  }
+
 }
 
 module.exports = SearchPoint;
