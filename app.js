@@ -83,16 +83,23 @@ app.post('/webhook', function (req, res) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
       var senderID = pageEntry.messaging[0].sender.id;
+      var sp = new SearchPoint();
 
-      db.find({ userId: senderID}, function (err, user) {
-        if(!user) {
-          var sp = new SearchPoint();
-          sp.userId = senderID;
-          db.insert(sp);
-        } else {
-          var sp = user;
-        }
-      });
+      if (senderID != '1130241563714158') {
+
+        db.find({ userId: senderID}, function (err, user) {
+
+          if(user.length !=0) { 
+            console.log(" FOUND " + user.userId);
+            sp = user;
+          } else {
+              sp
+              sp.userId = senderID;
+              db.insert(sp);
+          }
+        });
+      }
+
 
       // Iterate over each messaging event
       pageEntry.messaging.forEach(function(messagingEvent) {
@@ -110,8 +117,6 @@ app.post('/webhook', function (req, res) {
 });
 
 
-////////////////////////////// NEW SEARCH POINT
-var sp = new SearchPoint();
 
 //////////////////////////// START CONVERSATION
 function startConversation(recipientId){
@@ -179,7 +184,7 @@ function verifyRequestSignature(req, res, buf) {
  * object format can vary depending on the kind of message that was received.
  * Read more at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
  */
-function receivedMessage(event) {
+function receivedMessage(event, sp) {
   var senderID = event.sender.id;
   var recipientID = event.recipient.id;
   var timeOfMessage = event.timestamp;
@@ -296,7 +301,7 @@ function receivedDeliveryConfirmation(event) {
  * https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
  * 
  */
-function receivedPostback(event) {
+function receivedPostback(event, sp) {
 
   var senderID = event.sender.id;
   var recipientID = event.recipient.id;
