@@ -63,7 +63,7 @@ class BBBapi {
   };
 
 // CREATE A NEW PATH FOR REQUEST
-  makeLink(SearchPoint) {
+  makeLink(searchPoint) {
     var link = '';
       if(searchPoint.name)        link += '&PrimaryOrganizationName='+searchPoint.name;
       if(searchPoint.city)        link += '&City='+searchPoint.city;

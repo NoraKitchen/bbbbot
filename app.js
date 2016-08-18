@@ -9,8 +9,13 @@ const
     request = require('request');
   
 let app = express(),
-    SearchPoint = require('./searchpoint');
-let BBBapi = require('./bbbapi');
+    SearchPoint = require('./searchpoint'),
+    BBBapi = require('./bbbapi');
+let Datastore = require('nedb'),
+    db = new Datastore({ filename: 'path/to/datafile' });
+    db.loadDatabase(function (err) {
+      console.log(" DB error :" + err);
+});
 
 app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
@@ -36,24 +41,43 @@ if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL)) {
   process.exit(1);
 };
 
+//WELCOME SCREEN BUTTON
+request({
+    method: 'POST',
+    uri: 'https://graph.facebook.com/v2.7/me/thread_settings?access_token='+PAGE_ACCESS_TOKEN,
+    qs: {
+        setting_type: 'call_to_actions',
+        thread_state: 'new_thread',
+            call_to_actions: [{ payload: 'GET_START' }]
+        },
+        json: true
+    }, (error, response, body) => {
+        if (!error && response.statusCode == 200) {
+          var recipientId = body.recipient_id;
+          var messageId = body.message_id;
+          if (messageId) { console.log("Successfully sent message with id %s", messageId);
+          } else { console.log("Successfully called Send API"); }
+          } else { console.error(response.error); }
+  });
 
 // SETUP WEBHOOK
 app.get('/webhook', function(req, res) {
   if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === VALIDATION_TOKEN) {
-      console.log("Validating webhook");
-      res.status(200).send(req.query['hub.challenge']);
-      } else {
-      console.error("Failed validation. Make sure the validation tokens match.");
-      res.sendStatus(403);          
-  }  
-});
+    console.log("Validating webhook");
+    res.status(200).send(req.query['hub.challenge']);
+    } else {
+    console.error("Failed validation. Make sure the validation tokens match.");
+    res.sendStatus(403);          
+    };
+  }
+);
 
-/*All callbacks for Messenger are POST-ed. They will be sent to the same
- * webhook. Be sure to subscribe your app to your page to receive callbacks for your page. 
- * https://developers.facebook.com/docs/messenger-platform/product-overview/setup#subscribe_app
- */
+/*All callbacks for Messenger are POST-ed. They will be sent to the same webhook. 
+ * Be sure to subscribe your app to your page to receive callbacks for your page. 
+ * https://developers.facebook.com/docs/messenger-platform/product-overview/setup#subscribe_app */
 app.post('/webhook', function (req, res) {
   var data = req.body;
+  var sp = new SearchPoint();
   
   // Make sure this is a page subscription
   if (data.object == 'page') {
@@ -76,25 +100,6 @@ app.post('/webhook', function (req, res) {
   }
 });
 
-//WELCOME SCREEN BUTTON
-request({
-    method: 'POST',
-    uri: 'https://graph.facebook.com/v2.7/me/thread_settings?access_token='+PAGE_ACCESS_TOKEN,
-    qs: {
-        setting_type: 'call_to_actions',
-        thread_state: 'new_thread',
-            call_to_actions: [{ payload: 'GET_START' }]
-        },
-        json: true
-    }, (error, response, body) => {
-        if (!error && response.statusCode == 200) {
-          var recipientId = body.recipient_id;
-          var messageId = body.message_id;
-
-          if (messageId) { console.log("Successfully sent message with id %s", messageId);
-          } else { console.log("Successfully called Send API"); }
-          } else { console.error(response.error); }
-  });
 
 ////////////////////////////// NEW SEARCH POINT
 var sp = new SearchPoint();
@@ -134,12 +139,9 @@ function startConversation(recipientId){
 }
 
 /*
- * Verify that the callback came from Facebook. Using the App Secret from 
- * the App Dashboard, we can verify the signature that is sent with each 
- * callback in the x-hub-signature field, located in the header.
- *
+ * Verify that the callback came from Facebook. Using the App Secret from the App Dashboard, 
+ * we can verify the signature that is sent with each callback in the x-hub-signature field, located in the header.
  * https://developers.facebook.com/docs/graph-api/webhooks#setup
- *
  */
 function verifyRequestSignature(req, res, buf) {
   var signature = req.headers["x-hub-signature"];
@@ -334,7 +336,9 @@ function showListOfBusiness(sp) {
         };  
         callSendAPI(messageData);
         console.log("Send list of business to sender " + sp.userId);
-  }})};
+  }});
+  breq ={};
+};
  
 
 
@@ -386,51 +390,6 @@ function callSendAPI(messageData) {
     }
   });  
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////
-// // BBB.org API
-// function makeLink (sp){
-//     var reqLink = '';
-//     if(sp.name) reqLink +='&PrimaryOrganizationName='+sp.name;
-//     if(sp.city) reqLink += '&City='+sp.city;
-//     if(sp.state) reqLink+= '&StateProvince='+sp.state;
-//     if (sp.category) reqLink += "&PrimaryCategory="+sp.category;
-//     if(sp.zip) reqLink += '&PostalCode='+sp.zip;
-//
-//   findBusiness(reqLink, function (somedata) {
-//       showListOfBusiness(sp.userId, somedata);
-//   })};
-//
-// function findBusiness(reqLink, callback) {
-//
-//     var options = {
-//         host: 'api.bbb.org',
-//         port: 443,
-//         path: '/api/orgs/search?PageSize=10'+reqLink,
-//         method: 'GET',
-//         headers: {
-//         'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13',
-//         'Authorization': API_TOKEN
-//     }};
-//
-//     var request = https.request(options, function(response){
-//         console.log('Status: ' + response.statusCode);
-//         response.setEncoding('utf8');
-//         var body = "";
-//         response.on('data', (chunk) => body+=chunk);
-//         response.on("end", function () {
-//             var nodes = JSON.parse(body);
-//             if(nodes.TotalResults)  console.log("Total Results: " + nodes.TotalResults);
-//             if(nodes.SearchResults) callback(nodes.SearchResults);
-//         });
-//     });
-//
-//     request.on('error', function(error) {
-//         console.log('problem with request: ' + error.message);
-//         });
-//     request.end();
-// };
-////////////////////////////////////////////////////////////////////////
 
 app.listen(app.get('port'), function() {
   console.log('Node app is running on port', app.get('port'));
