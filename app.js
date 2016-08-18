@@ -203,29 +203,29 @@ function receivedMessage(event) {
 
     // MESSAGE HAS RETURNED
     if (messageText) {
+      mText = messageText.toLowerCase().trim()
     
       if(sp.name == 200) {
-        sp.setName(messageText.trim());
+        sp.setName(mText);
         sp.setCategory(false);
         callSendAPI(sp.askLocation(senderID));
       }
       if(sp.category == 300){
-        sp.category = messageText.trim();
-        sp.name = false;
+        sp.setCategory(mText);
+        sp.setName(false);
         callSendAPI(sp.askLocation(senderID));
       }
       if(sp.zip == 600) {
-        sp.zip = parseInt(messageText.trim());
-        sp.city = false;
-        sp.state = false;
+        sp.setZip(parseInt(mText));
+        sp.setCity(false);
+        sp.setState(false);
         showListOfBusiness(sp);
       }
       if(sp.city == 700) {
-        sp.city = messageText.trim();
-        sp.zip = false;
+        sp.city = mText;
+        sp.setZip(false);
         showListOfBusiness(sp);
       }
-  
       switch (messageText) {
         case 'menu':
           startConversation(senderID);
