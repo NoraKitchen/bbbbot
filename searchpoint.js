@@ -43,7 +43,7 @@ class SearchPoint {
 
   // ASK ZIP
   askZip (recipientId) {
-    sp.setZip(600);
+    this.setZip(600);
     let messageData = { recipient: { id: recipientId }, message: { text: "Add post code" }};
     return messageData;
   }

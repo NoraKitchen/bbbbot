@@ -202,8 +202,8 @@ function receivedMessage(event) {
     }// qp end
 
     // MESSAGE HAS RETURNED
-    if (messageText) {
-      mText = messageText.toLowerCase().trim()
+      let mText = messageText.toLowerCase().trim()
+    if (mText) {
     
       if(sp.name == 200) {
         sp.setName(mText);
@@ -226,13 +226,13 @@ function receivedMessage(event) {
         sp.setZip(false);
         showListOfBusiness(sp);
       }
-      switch (messageText) {
+      switch (mText) {
         case 'menu':
           startConversation(senderID);
           break;
         case 'hello':
         case 'hi':
-          sendTextMessage(senderID, messageText);
+          sendTextMessage(senderID, mText);
           break;
         case 'help':
           sendTextMessage(senderID, 'There should be help message');
