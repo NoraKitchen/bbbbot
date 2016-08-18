@@ -182,97 +182,73 @@ function receivedMessage(event) {
   var recipientID = event.recipient.id;
   var timeOfMessage = event.timestamp;
   var message = event.message;
-  let sp = new SearchPoint();
-  db.find({ userId: senderID}, function (err, user) {sp = user[0]});
-
+  var messageId = message.mid;
+  var messageText = message.text;
+  var quickReply = message.quick_reply;
   console.log("Received message for user %d and page %d at %d with message:",senderID, recipientID, timeOfMessage);
   console.log(JSON.stringify(message));
 
-  var messageId = message.mid;
-  var appId = message.app_id;
-  var metadata = message.metadata;
+  let sp = new SearchPoint();
+  db.find({ userId: senderID}, function (err, user) {
+    sp.reload(user[0]);
 
-  // You may get a text or attachment but not both
-  var messageText = message.text;
-  var messageAttachments = message.attachments;
-  var quickReply = message.quick_reply;
+// QUICK REPLAY HAS RETURNED THE STATE
+    if (quickReply) {
+      var qrp = quickReply.payload;
+      console.log("Quick reply for message %s with payload %s", messageId, qrp);
+      sp.setState(qrp);
+      callSendAPI(sp.askCity(senderID));
+      return;
+    }// qp end
 
-   
-  if (quickReply) {
-    var quickReplyPayload = quickReply.payload;
-    console.log("Quick reply for message %s with payload %s", messageId, quickReplyPayload);
-
-    // WHAEN WE ASK A STATE AND RESPONSE IS ONE OF THEM
-    switch (quickReply.payload) {
-      case 'AK': 
-      case 'WA': 
-      case 'OR': 
-      case 'ID':               
-      case 'MT':
-      case 'WY':
-        sp.setState(quickReply.payload);
-        callSendAPI(sp.askCity(senderID));
-        break;        
-    }
-    return;
-  }
-
-  if (messageText) {
-
-    if(sp.name == 200) {
-      sp.setName(messageText.trim());
-      sp.setCategory(false);
-      callSendAPI(sp.askLocation(senderID));
-    }
-    if(sp.category == 300){
-      sp.category = messageText.trim();
-      sp.name = false;
-      callSendAPI(sp.askLocation(senderID));
-    }
-    if(sp.zip == 600) {
-      sp.zip = parseInt(messageText.trim());
-      sp.city = false;
-      sp.state = false;
-      showListOfBusiness(sp);
-    }
-    if(sp.city == 700) {
-      sp.city = messageText.trim();
-      sp.zip = false;
-      showListOfBusiness(sp);
-    }
+    // MESSAGE HAS RETURNED
+    if (messageText) {
+    
+      if(sp.name == 200) {
+        sp.setName(messageText.trim());
+        sp.setCategory(false);
+        callSendAPI(sp.askLocation(senderID));
+      }
+      if(sp.category == 300){
+        sp.category = messageText.trim();
+        sp.name = false;
+        callSendAPI(sp.askLocation(senderID));
+      }
+      if(sp.zip == 600) {
+        sp.zip = parseInt(messageText.trim());
+        sp.city = false;
+        sp.state = false;
+        showListOfBusiness(sp);
+      }
+      if(sp.city == 700) {
+        sp.city = messageText.trim();
+        sp.zip = false;
+        showListOfBusiness(sp);
+      }
   
-    switch (messageText) {
-
-      case 'menu':
-        startConversation(senderID);
-        break;
-
-      case 'hello':
-      case 'hi':
-        sendTextMessage(senderID, messageText);
-        break;
-      
-      case 'help':
-        sendTextMessage(senderID, 'There should be help message');
-
-      // default:
-      //   sendTextMessage(senderID, messageText);
-    }
-  } else if (messageAttachments) {
-    sendTextMessage(senderID, "Message with attachment received");
-  }
+      switch (messageText) {
+        case 'menu':
+          startConversation(senderID);
+          break;
+        case 'hello':
+        case 'hi':
+          sendTextMessage(senderID, messageText);
+          break;
+        case 'help':
+          sendTextMessage(senderID, 'There should be help message');
+          break;
+      }
+    }// message end
+  })
+  
+  db.remove({ userId: senderID}, { multi: true });
+  db.insert(sp);
 }
 
 
+// POSTBACK EVENT. This event is called when a postback is tapped on a Structured Message. 
+// Read more https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
 
-
-
-/////// POSTBACK EVENT
-/*
- * This event is called when a postback is tapped on a Structured Message. 
- * https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
- * 
- */
 function receivedPostback(event) {
 
   var senderID = event.sender.id;
@@ -325,7 +301,6 @@ function showListOfBusiness(sp) {
         callSendAPI(messageData);
         console.log("Send list of business to sender " + sp.userId);
   }});
-  breq ={};
 };
  
 //////////////////////////////////////////////////////////////

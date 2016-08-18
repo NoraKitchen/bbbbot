@@ -60,9 +60,9 @@ class SearchPoint {
           {"content_type":"text", "title":"Alaska",     "payload":"AK"},
           {"content_type":"text", "title":"Washington", "payload":"WA"},
           {"content_type":"text", "title":"Oregon",     "payload":"OR"},
-          {"content_type":"text", "title":"Idaho",       "payload":"ID"},
-          {"content_type":"text", "title":"Montana",     "payload":"MT"},  
-          {"content_type":"text", "title":"Wyoming",     "payload":"WY"}
+          {"content_type":"text", "title":"Idaho",      "payload":"ID"},
+          {"content_type":"text", "title":"Montana",    "payload":"MT"},  
+          {"content_type":"text", "title":"Wyoming",    "payload":"WY"}
         ]
       }
     };
