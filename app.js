@@ -12,10 +12,9 @@ let app = express(),
     SearchPoint = require('./searchpoint'),
     BBBapi = require('./bbbapi');
 let Datastore = require('nedb'),
-    db = new Datastore({ filename: 'path/to/datafile' });
-    db.loadDatabase(function (err) {
-      console.log(" DB error :" + err);
-});
+    db = new Datastore({ filename: 'data/db.json', autoload: true });
+    db.loadDatabase(function (err) { console.log(" DB error :" + err);
+  });
 
 app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
@@ -78,6 +77,30 @@ app.get('/webhook', function(req, res) {
 app.post('/webhook', function (req, res) {
   var data = req.body;
   var sp = new SearchPoint();
+  var senderID = data.entry[0].messaging[0].sender.id;
+  sp.userId = senderID;
+  var z = new Object();
+    z.name = sp.name;
+    z.city = sp.city;
+    z.state = sp.state;
+    z.userId = sp.userId;
+    z.category = sp.category;
+    z.zip = sp.zip;
+  var doc = {    hello: 'world'
+               , n: 5
+               , today: new Date()
+               , nedbIsAwesome: true
+               , notthere: null
+               };
+  db.insert(z);
+  db.insert(doc, function (err, newDoc) {   // Callback is optional 
+  // newDoc is the newly inserted document, including its _id 
+  // newDoc has no key called notToBeSaved since its value was undefined 
+  });
+
+  db.find({ userId: senderID }, function (err, user) {
+    console.log(" found" + user);
+  });
   
   // Make sure this is a page subscription
   if (data.object == 'page') {
