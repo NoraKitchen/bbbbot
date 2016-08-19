@@ -301,6 +301,7 @@ function showListOfBusiness(sp) {
         callSendAPI(messageData);
         console.log("Send list of business to sender " + sp.userId);
   }});
+  db.remove({ userId: sp.userId}, { multi: true });
 };
  
 //////////////////////////////////////////////////////////////
