@@ -213,7 +213,7 @@ function receivedPostback(event) {
       case 'GET_START':
           fbo.startConversation(senderID, function(greetings){
             fbo.sendMessage(greetings);
-            fbo.searchMenu();
+            fbo.searchMenu(senderID);
           })
           break;
       case 'SEARCH_BY_NAME':

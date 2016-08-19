@@ -83,8 +83,8 @@ class FBoperations {
               message:   { text: "Hello "+ name.first_name+" "+ name.last_name + ", we can help you to find appropriate business in the northwest region"},
             };
           };
-        });
         callback(greetings);
+        });
   }
 
   // Send search initial menu
