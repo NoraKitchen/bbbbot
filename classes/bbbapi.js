@@ -75,4 +75,4 @@ class BBBapi {
 
 };
 
-module.exports = BBBapi;
+module.exports = new BBBapi;

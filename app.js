@@ -10,8 +10,8 @@ const
   
 let app = express(),
     SearchPoint = require('./classes/searchpoint'),
-    BBBapi = require('./classes/bbbapi'),
-    FBoperations = require('./classes/fbclass');
+    bbbapi = require('./classes/bbbapi'),
+    fbo = require('./classes/fbclass');
 
 let Datastore = require('nedb'),
     db = new Datastore({ filename: 'data/users', autoload: true });
@@ -59,7 +59,7 @@ request({
           if (messageId) { console.log("Successfully sent message with id %s", messageId);
           } else { console.log("Successfully called Send API"); }
           } else { console.error(response.error); }
-  });
+});
 
 // SETUP WEBHOOK
 app.get('/webhook', function(req, res) {
@@ -128,10 +128,7 @@ function verifyRequestSignature(req, res, buf) {
     var elements = signature.split('=');
     var method = elements[0];
     var signatureHash = elements[1];
-
-    var expectedHash = crypto.createHmac('sha1', APP_SECRET)
-                        .update(buf)
-                        .digest('hex');
+    var expectedHash = crypto.createHmac('sha1', APP_SECRET).update(buf).digest('hex');
 
     if (signatureHash != expectedHash) {
       throw new Error("Couldn't validate the request signature.");
@@ -256,9 +253,9 @@ function receivedPostback(event) {
 
 // SHOW RESPONCE FROM BBB API
 function showListOfBusiness(sp) {
-  let breq = new BBBapi();
+
   let newElements = [];
-  breq.createList(sp, API_TOKEN, function(data){
+  bbbapi.createList(sp, API_TOKEN, function(data){
 
     if(!data) {sendTextMessage(sp.userId, "Sorry, nothing")
       } else {
