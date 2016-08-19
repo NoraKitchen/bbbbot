@@ -15,8 +15,7 @@ let app = express(),
 
 let Datastore = require('nedb'),
     db = new Datastore({ filename: 'data/users', autoload: true });
-    db.loadDatabase(function (err) { console.log(" DB error :" + err);
-    });
+    db.loadDatabase(err => console.log(" DB error :" + err));
 
 app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
@@ -43,23 +42,7 @@ if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL)) {
 };
 
 //WELCOME SCREEN BUTTON
-request({
-    method: 'POST',
-    uri: 'https://graph.facebook.com/v2.7/me/thread_settings?access_token='+PAGE_ACCESS_TOKEN,
-    qs: {
-        setting_type: 'call_to_actions',
-        thread_state: 'new_thread',
-            call_to_actions: [{ payload: 'GET_START' }]
-        },
-        json: true
-    }, (error, response, body) => {
-        if (!error && response.statusCode == 200) {
-          var recipientId = body.recipient_id;
-          var messageId = body.message_id;
-          if (messageId) { console.log("Successfully sent message with id %s", messageId);
-          } else { console.log("Successfully called Send API"); }
-          } else { console.error(response.error); }
-});
+fbo.welcomeButton(PAGE_ACCESS_TOKEN);
 
 // SETUP WEBHOOK
 app.get('/webhook', function(req, res) {
@@ -85,27 +68,24 @@ app.post('/webhook', function (req, res) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
       var senderID = pageEntry.messaging[0].sender.id;
-
-      if (senderID != '1130241563714158') {
+      if (senderID != '1130241563714158'){
         db.find({ userId: senderID}, function (err, user) {
-        if(user.length == 0) { 
-            var sp = new SearchPoint();
+         if( user.length == 0) {
+            let sp = new SearchPoint();
             sp.userId = senderID;
             db.insert(sp);
         }
         // Iterate over each messaging event
         pageEntry.messaging.forEach(function(messagingEvent) {
-          if (messagingEvent.message)         {receivedMessage(messagingEvent);
-          } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
-          } else if (messagingEvent.read)     {receivedMessageRead(messagingEvent);
-          } else if (messagingEvent.delivery) {receivedDeliveryConfirmation(messagingEvent);
-          } else {
-            console.log("Webhook received unknown messagingEvent: ", messagingEvent);
+          if (messagingEvent.message)           {receivedMessage(messagingEvent);
+            } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
+            } else if (messagingEvent.read)     {fbo.receivedMessageRead(messagingEvent);
+            } else if (messagingEvent.delivery) {fbo.receivedDeliveryConfirmation(messagingEvent);
+            } else { console.log("Webhook received unknown messagingEvent: ", messagingEvent);
           }
         });
-        });
+        });// end of db.find
       };
-
     });
     
     res.sendStatus(200);
@@ -155,45 +135,44 @@ function receivedMessage(event) {
 
   let sp = new SearchPoint();
   db.find({ userId: senderID}, function (err, user) {
-    sp.reload(user[0]);
+   sp.reload(user[0]);
 
-// QUICK REPLAY HAS RETURNED THE STATE
+    // QUICK REPLAY HAS RETURNED THE STATE
     if (quickReply) {
-      var qrp = quickReply.payload;
-      console.log("Quick reply for message %s with payload %s", messageId, qrp);
-      sp.setState(qrp);
-      callSendAPI(sp.askCity(senderID));
+      console.log("Quick reply for message %s with payload %s", messageId, quickReply.payload);
+      sp.state = quickReply.payload;
+      fbo.sendMessage(sp.askCity(senderID));
       return;
-    }// qp end
+    }
 
     // MESSAGE HAS RETURNED
-      let mText = messageText.toLowerCase().trim()
+    let mText = messageText.toLowerCase().trim();
     if (mText) {
     
-      if(sp.name == 200) {
-        sp.setName(mText);
-        sp.setCategory(false);
-        callSendAPI(sp.askLocation(senderID));
+      if(sp.name == 'WAIT') {
+        sp.name = mText;
+        sp.category = false;
+        fbo.sendMessage(sp.askLocation(senderID));
       }
-      if(sp.category == 300){
-        sp.setCategory(mText);
-        sp.setName(false);
-        callSendAPI(sp.askLocation(senderID));
+      if(sp.category == 'WAIT'){
+        sp.category = mText;
+        sp.name = false;
+        fbo.sendMessage(sp.askLocation(senderID));
       }
-      if(sp.zip == 600) {
-        sp.setZip(parseInt(mText));
-        sp.setCity(false);
-        sp.setState(false);
+      if(sp.zip == 'WAIT') {
+        sp.zip = mText;
+        sp.city = false;
+        sp.state = false;
         showListOfBusiness(sp);
       }
-      if(sp.city == 700) {
+      if(sp.city == 'WAIT') {
         sp.city = mText;
-        sp.setZip(false);
+        sp.zip = false;
         showListOfBusiness(sp);
       }
       switch (mText) {
         case 'menu':
-          startConversation(senderID);
+          fbo.searchMenu(senderID);
           break;
         case 'hello':
         case 'hi':
@@ -205,9 +184,11 @@ function receivedMessage(event) {
       }
     }// message end
   })
+
+
+    db.remove({ userId: senderID}, { multi: true });
+    db.insert(sp);
   
-  db.remove({ userId: senderID}, { multi: true });
-  db.insert(sp);
 }
 
 
@@ -224,30 +205,35 @@ function receivedPostback(event) {
   console.log("Received postback for user %d and page %d with payload '%s' at %d", senderID, recipientID, payload, timeOfPostback);
 
   db.find({ userId: senderID}, function (err, user) {
-    sp.reload(user[0]);
+     sp.reload(user[0]);
   
   ///// SEARCH BY ITEM
   if (payload) {
     switch (payload) {
       case 'GET_START':
-          startConversation(senderID);
+          fbo.startConversation(senderID, function(greetings){
+            fbo.sendMessage(greetings);
+            fbo.searchMenu();
+          })
           break;
       case 'SEARCH_BY_NAME':
-          callSendAPI(sp.askName(senderID));
+          fbo.sendMessage(sp.askName(senderID));
           break;
       case 'SEARCH_BY_CATEGORY':
-          callSendAPI(sp.askCategory(senderID));
+          fbo.sendMessage(sp.askCategory(senderID));
           break;
       case 'LOCATION_STATE':
-          callSendAPI(sp.askState(senderID));
+          fbo.sendMessage(sp.askState(senderID));
           break;
       case 'LOCATION_ZIP':
-          callSendAPI(sp.askZip(senderID));
+          fbo.sendMessage(sp.askZip(senderID));
           break;
-  }}});
+  }}
 
-  db.remove({ userId: senderID}, { multi: true });
-  db.insert(sp);
+    db.remove({ userId: senderID}, { multi: true });
+    db.insert(sp);
+});
+
 };
 
 
@@ -263,7 +249,7 @@ function showListOfBusiness(sp) {
           recipient: { id: sp.userId },
           message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
         };  
-        callSendAPI(messageData);
+        fbo.sendMessage(messageData);
         console.log("Send list of business to sender " + sp.userId);
   }});
   db.remove({ userId: sp.userId}, { multi: true });
@@ -304,29 +290,11 @@ function startConversation(recipientId){
                   }
                 }
               };  
-        callSendAPI(greetings);
+        fbo.sendMessage(greetings);
       }
     });
 }
-function receivedDeliveryConfirmation(event) {
-  var delivery = event.delivery;
-  var messageIDs = delivery.mids;
-  var watermark = delivery.watermark;
 
-  if (messageIDs) {
-    messageIDs.forEach(function(messageID) { console.log("Received delivery confirmation for message ID: %s", messageID)});
-  }
-  console.log("All message before %d were delivered.", watermark);
-}
-
-// MESSAGE READ EVENT. This event is called when a previously-sent message has been read.
-// Read more about these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-read
- 
-function receivedMessageRead(event) {
-  var watermark = event.read.watermark;
-  var sequenceNumber = event.read.seq;
-  console.log("Received message read event for watermark %d and sequence number %d", watermark, sequenceNumber);
-}
 
 // SEND A TEXT MESSAGE
 function sendTextMessage(recipientId, messageText) {
@@ -334,33 +302,10 @@ function sendTextMessage(recipientId, messageText) {
     recipient: { id: recipientId },
     message:   { text: messageText, metadata: "TEXT" }
   };
-  callSendAPI(messageData);
+  fbo.sendMessage(messageData);
 }
 
-// CALL THE SEND API. The message data goes in the body. 
-// If successful, we'll get the message id in a response.
-function callSendAPI(messageData) {
-  request({
-    uri: 'https://graph.facebook.com/v2.7/me/messages',
-    qs: { access_token: PAGE_ACCESS_TOKEN },
-    method: 'POST',
-    json: messageData
 
-  }, function (error, response, body) {
-    if (!error && response.statusCode == 200) {
-      var recipientId = body.recipient_id;
-      var messageId = body.message_id;
-
-        if (messageId) {
-          console.log("Successfully sent message with id %s to recipient %s", messageId, recipientId);
-        } else {
-          console.log("Successfully called Send API for recipient %s", recipientId);
-        }
-    } else {
-        console.error(response.error);
-    }
-  });  
-}
 
 //////////////////////////////////////////////////////////////////////
 // START SERVER

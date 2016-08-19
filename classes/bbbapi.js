@@ -5,7 +5,6 @@ const https = require('https');
 // BBB API searching
 // This object take SearchPoint object and return array of businesses
 class BBBapi {
-  constructor() {};
 
 // MAKE A LIST WITH OPTIONS FROM SEARCH POINT AND RETURN IT TO BOT
   createList (searchPoint, token, callback){

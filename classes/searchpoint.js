@@ -12,45 +12,38 @@ class SearchPoint {
       this.zip = false;
       this.userId = false;
   }
-
-  setName (item) { this.name = item; }
-  setCategory (item) {this.category = item;}
-  setCity (item) {this.city = item; }
-  setState (item) {this.state = item; }
-  setZip (item) { this.zip = item;}
-  setUserId (item) { this.userId = item; }
   
   // ASK COMPANY NAME
   askName (recipientId) {
-    this.setName(200);
+    this.name = 'WAIT'
     let messageData = {recipient: { id: recipientId }, message: { text: "Fill out name" }};
     return messageData;
   };
 
   // ASK CATEGORY
   askCategory (recipientId) {
-    this.setCategory(300);
+    this.category = 'WAIT'
     let messageData = {recipient: { id: recipientId },message: { text: "Fill out category"}};
     return messageData
   }
 
   // ASK CITY
   askCity (recipientId) {
-    this.setCity(700);
+    this.city ='WAIT';
     let messageData = { recipient: { id: recipientId }, message: { text: "Add city" }};
     return messageData;
   };
 
   // ASK ZIP
   askZip (recipientId) {
-    this.setZip(600);
+    this.zip = 'WAIT';
     let messageData = { recipient: { id: recipientId }, message: { text: "Add post code" }};
     return messageData;
   }
 
   // ASK STATE
   askState (recipientId) {
-    this.setState(500);
+    this.state = 'WAIT';
     let messageData = {
       recipient: { id: recipientId },
       message: {
