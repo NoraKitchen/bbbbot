@@ -85,8 +85,7 @@ app.post('/webhook', function (req, res) {
       var senderID = pageEntry.messaging[0].sender.id;
 
       if (senderID != '1130241563714158') {
-
-      db.find({ userId: senderID}, function (err, user) {
+        db.find({ userId: senderID}, function (err, user) {
         if(user.length == 0) { 
             var sp = new SearchPoint();
             sp.userId = senderID;
@@ -102,48 +101,15 @@ app.post('/webhook', function (req, res) {
             console.log("Webhook received unknown messagingEvent: ", messagingEvent);
           }
         });
-      });
-      }
+        });
+      };
+
     });
+    
     res.sendStatus(200);
   }
 });
 
-
-
-//////////////////////////// START CONVERSATION
-function startConversation(recipientId){
-  var name;
-  request({
-    url: 'https://graph.facebook.com/v2.7/'+recipientId,
-    qs: {access_token: PAGE_ACCESS_TOKEN},
-    method: 'GET'
-  }, function(error, response, body) {
-      if (error) { console.log('Error sending message: ', error);
-      }else if (response.body.error) { console.log('Error: ', response.body.error);
-            } else {
-              name = JSON.parse(body);
-              var greetings = {
-                recipient: { id: recipientId },
-                message:   {
-                  attachment: {
-                    type: "template",
-                    payload: {
-                      template_type: "button",
-                      text: "Hello "+ name.first_name+" "+ name.last_name + ", we can help you to find appropriate business in the northwest region. How do you prefer to search by?",
-                        buttons:[
-                          { type: "postback", title: "Name of business", payload: "SEARCH_BY_NAME" },
-                          { type: "postback", title: "Category",         payload: "SEARCH_BY_CATEGORY"},
-                          { type: "web_url",  title: "OR visit our site", url: "https://www.bbb.org/northwest/"}
-                          ]
-                    }
-                  }
-                }
-              };  
-        callSendAPI(greetings);
-      }
-    });
-}
 
 /*
  * Verify that the callback came from Facebook. Using the App Secret from the App Dashboard, 
@@ -304,12 +270,45 @@ function showListOfBusiness(sp) {
   db.remove({ userId: sp.userId}, { multi: true });
 };
  
-//////////////////////////////////////////////////////////////
-///////////// FACEBOOK FUNCTIONS /////////////////////////////
-
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///////////// FACEBOOK FUNCTIONS /////////////////////////////////////////////////////////////////
 // DELIVERY CONFIRMATION EVENT. This event is sent to confirm the delivery of a message.
-// Read more about these fields at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
+///// https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
+// START CONVERSATION
+function startConversation(recipientId){
+  var name;
+  request({
+    url: 'https://graph.facebook.com/v2.7/'+recipientId,
+    qs: {access_token: PAGE_ACCESS_TOKEN},
+    method: 'GET'
+  }, function(error, response, body) {
+      if (error) { console.log('Error sending message: ', error);
+      }else if (response.body.error) { console.log('Error: ', response.body.error);
+            } else {
+              name = JSON.parse(body);
+              var greetings = {
+                recipient: { id: recipientId },
+                message:   {
+                  attachment: {
+                    type: "template",
+                    payload: {
+                      template_type: "button",
+                      text: "Hello "+ name.first_name+" "+ name.last_name + ", we can help you to find appropriate business in the northwest region. How do you prefer to search by?",
+                        buttons:[
+                          { type: "postback", title: "Name of business", payload: "SEARCH_BY_NAME" },
+                          { type: "postback", title: "Category",         payload: "SEARCH_BY_CATEGORY"},
+                          { type: "web_url",  title: "OR visit our site", url: "https://www.bbb.org/northwest/"}
+                          ]
+                    }
+                  }
+                }
+              };  
+        callSendAPI(greetings);
+      }
+    });
+}
 function receivedDeliveryConfirmation(event) {
   var delivery = event.delivery;
   var messageIDs = delivery.mids;
