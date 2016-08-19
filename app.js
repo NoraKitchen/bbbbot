@@ -9,12 +9,14 @@ const
     request = require('request');
   
 let app = express(),
-    SearchPoint = require('./searchpoint'),
-    BBBapi = require('./bbbapi');
+    SearchPoint = require('./classes/searchpoint'),
+    BBBapi = require('./classes/bbbapi'),
+    FBoperations = require('./classes/fbclass');
+
 let Datastore = require('nedb'),
     db = new Datastore({ filename: 'data/users', autoload: true });
     db.loadDatabase(function (err) { console.log(" DB error :" + err);
-  });
+    });
 
 app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
