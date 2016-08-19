@@ -1,6 +1,6 @@
 # Test Facebook bot for BBB NW (based on node.js)
 
-This project is the test facebbok bot for BBB NordWest.
+This project is the test facebbok bot for CCC NW.
 Test it http://m.me/1762298384053221
 
 Following the [walk-through](https://developers.facebook.com/docs/messenger-platform/quickstart) in more detail.
