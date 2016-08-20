@@ -1,6 +1,7 @@
 'use strict';
+
 const https = require('https'),
-      request = require('request'),
+      request = require('request');
       config = require('config');
 
 // Generate a page access token for your page from the App Dashboard
@@ -46,7 +47,7 @@ class FBoperations {
     });
   };
 
-  // 
+  // Send message to Facebook API
   sendMessage(messageData) {
     request({
       uri: 'https://graph.facebook.com/v2.7/me/messages',
@@ -114,6 +115,33 @@ class FBoperations {
     };
     this.sendMessage(messageData);
   }
+
+  negativeResult(recipientId){
+    var messageData = {
+      recipient: { id: recipientId },
+      message:   { text: " Sorry nothing. Try again please.", metadata: "TEXT" }
+    };
+    this.sendMessage(messageData);
+  }
+
+  ////// SHOW RESPONCE FROM BBB API
+  showListOfBusiness(sp, bbbapi) {
+
+  let newElements = [];
+  bbbapi.createList(sp, function(data){
+
+    if(!data) { this.negativeResult(sp.userId)
+      } else {
+        let messageData = {
+          recipient: { id: sp.userId },
+          message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
+        };  
+        this.sendMessage(messageData);
+        console.log("Send list of business to sender " + sp.userId);
+  }});
+
+};
+ 
 
 
 

@@ -1,17 +1,22 @@
 'use strict';
-const https = require('https');
+const https = require('https'),
+      config = require('config');
+
+// BBB api token 
+const API_TOKEN = config.get('token');
 
 
 // BBB API searching
 // This object take SearchPoint object and return array of businesses
 class BBBapi {
 
+
 // MAKE A LIST WITH OPTIONS FROM SEARCH POINT AND RETURN IT TO BOT
-  createList (searchPoint, token, callback){
+  createList (searchPoint, callback){
     let newList = [];
     let link = '/api/orgs/search?PageSize=10'+this.makeLink(searchPoint)
     
-    this.callBBBapi(link, token, function (list) {
+    this.callBBBapi(link, function (list) {
         let count = list.length;
         if (count == 0) { 
           newList = false;
@@ -34,7 +39,7 @@ class BBBapi {
   })};
 
 // REQUEST TO BBB API
-  callBBBapi (path, token, callback) {
+  callBBBapi (path, callback) {
 
     let options = {
         host: 'api.bbb.org',
@@ -43,7 +48,7 @@ class BBBapi {
         method: 'GET',
         headers: {
         'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13',
-        'Authorization': token
+        'Authorization': API_TOKEN
     }};
     
     let request = https.request(options, function(response){

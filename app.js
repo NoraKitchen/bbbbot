@@ -10,8 +10,8 @@ const
   
 let app = express(),
     SearchPoint = require('./classes/searchpoint'),
-    bbbapi = require('./classes/bbbapi'),
-    fbo = require('./classes/fbclass');
+    fbo = require('./classes/fbclass'),
+    bbbapi = require('./classes/bbbapi');
 
 let Datastore = require('nedb'),
     db = new Datastore({ filename: 'data/users', autoload: true });
@@ -21,8 +21,8 @@ app.set('port', process.env.PORT || 5000);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
 app.use(express.static('public'));
 
-// BBB api token 
-const API_TOKEN = config.get('token');
+
+
 
 // App Secret can be retrieved from the App Dashboard
 const APP_SECRET = (process.env.MESSENGER_APP_SECRET) ? process.env.MESSENGER_APP_SECRET : config.get('appSecret');
@@ -116,6 +116,17 @@ function verifyRequestSignature(req, res, buf) {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////**********************//////////////////////////////////
+///////////////////////////////**********************//////////////////////////////////
+///////////////////////////////**********************//////////////////////////////////
+////////////////////////////////********************///////////////////////////////////
+/////////////////////////////////******************////////////////////////////////////
+//////////////////////////////////****************/////////////////////////////////////
+
+
+
+
 /* Message Event
  *
  * This event is called when a message is sent to your page. The 'message' 
@@ -163,12 +174,12 @@ function receivedMessage(event) {
         sp.zip = mText;
         sp.city = false;
         sp.state = false;
-        showListOfBusiness(sp);
+        fbo.showListOfBusiness(sp, bbbapi);
       }
       if(sp.city == 'WAIT') {
         sp.city = mText;
         sp.zip = false;
-        showListOfBusiness(sp);
+        fbo.showListOfBusiness(sp, bbbapi);
       }
       switch (mText) {
         case 'menu':
@@ -176,15 +187,14 @@ function receivedMessage(event) {
           break;
         case 'hello':
         case 'hi':
-          sendTextMessage(senderID, mText);
+          fbo.sendTextMessage(senderID, mText);
           break;
         case 'help':
-          sendTextMessage(senderID, 'There should be help message');
+          fbo.sendTextMessage(senderID, 'There should be help message');
           break;
       }
     }// message end
   })
-
 
     db.remove({ userId: senderID}, { multi: true });
     db.insert(sp);
@@ -237,77 +247,27 @@ function receivedPostback(event) {
 };
 
 
-// SHOW RESPONCE FROM BBB API
-function showListOfBusiness(sp) {
+// ////// SHOW RESPONCE FROM BBB API
+// function showListOfBusiness(sp) {
 
-  let newElements = [];
-  bbbapi.createList(sp, API_TOKEN, function(data){
+//   let newElements = [];
+//   bbbapi.createList(sp, API_TOKEN, function(data){
 
-    if(!data) {sendTextMessage(sp.userId, "Sorry, nothing")
-      } else {
-        let messageData = {
-          recipient: { id: sp.userId },
-          message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
-        };  
-        fbo.sendMessage(messageData);
-        console.log("Send list of business to sender " + sp.userId);
-  }});
-  db.remove({ userId: sp.userId}, { multi: true });
-};
+//     if(!data) { 
+//       fbo.negativeResult(sp.userId)
+//       } else {
+//         let messageData = {
+//           recipient: { id: sp.userId },
+//           message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
+//         };  
+//         fbo.sendMessage(messageData);
+//         console.log("Send list of business to sender " + sp.userId);
+//   }});
+//   db.remove({ userId: sp.userId}, { multi: true });
+// };
  
-//////////////////////////////////////////////////////////////////////////////////////////////////
-///////////// FACEBOOK FUNCTIONS /////////////////////////////////////////////////////////////////
-// DELIVERY CONFIRMATION EVENT. This event is sent to confirm the delivery of a message.
-///// https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-delivered
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
-// START CONVERSATION
-function startConversation(recipientId){
-  var name;
-  request({
-    url: 'https://graph.facebook.com/v2.7/'+recipientId,
-    qs: {access_token: PAGE_ACCESS_TOKEN},
-    method: 'GET'
-  }, function(error, response, body) {
-      if (error) { console.log('Error sending message: ', error);
-      }else if (response.body.error) { console.log('Error: ', response.body.error);
-            } else {
-              name = JSON.parse(body);
-              var greetings = {
-                recipient: { id: recipientId },
-                message:   {
-                  attachment: {
-                    type: "template",
-                    payload: {
-                      template_type: "button",
-                      text: "Hello "+ name.first_name+" "+ name.last_name + ", we can help you to find appropriate business in the northwest region. How do you prefer to search by?",
-                        buttons:[
-                          { type: "postback", title: "Name of business", payload: "SEARCH_BY_NAME" },
-                          { type: "postback", title: "Category",         payload: "SEARCH_BY_CATEGORY"},
-                          { type: "web_url",  title: "OR visit our site", url: "https://www.bbb.org/northwest/"}
-                          ]
-                    }
-                  }
-                }
-              };  
-        fbo.sendMessage(greetings);
-      }
-    });
-}
-
-
-// SEND A TEXT MESSAGE
-function sendTextMessage(recipientId, messageText) {
-  var messageData = {
-    recipient: { id: recipientId },
-    message:   { text: messageText, metadata: "TEXT" }
-  };
-  fbo.sendMessage(messageData);
-}
-
-
-
-//////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////
 // START SERVER
 app.listen(app.get('port'), function() {
   console.log('Facebook bot app is running on port', app.get('port'));
