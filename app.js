@@ -174,12 +174,16 @@ function receivedMessage(event) {
         sp.zip = mText;
         sp.city = false;
         sp.state = false;
-        fbo.showListOfBusiness(sp, bbbapi);
+        fbo.showListOfBusiness(sp, bbbapi, function(data){
+          fbo.sendMessage(data);
+        });
       }
       if(sp.city == 'WAIT') {
         sp.city = mText;
         sp.zip = false;
-        fbo.showListOfBusiness(sp, bbbapi);
+        fbo.showListOfBusiness(sp, bbbapi, function(data){
+          fbo.sendMessage(data);
+        });
       }
       switch (mText) {
         case 'menu':
