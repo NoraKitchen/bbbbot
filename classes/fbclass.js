@@ -123,7 +123,7 @@ class FBoperations {
       let messageData = {};
       if(!data) { 
           messageData = {
-            recipient: { id: recipientId },
+            recipient: { id: sp.userId },
             message:   { text: " Sorry nothing. Try again please.", metadata: "TEXT" }
           };
         } else {
