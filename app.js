@@ -79,14 +79,9 @@ app.post('/webhook', function (req, res) {
         
         // Iterate over each messaging event
         pageEntry.messaging.forEach(function(messagingEvent) {
-          fbo.receivedMessageEvent(messagingEvent, sp, (updatedSearchPoint) => db.update({ userId: senderID}, updatedSearchPoint))
+          fbo.receivedMessageEvent(messagingEvent, sp, bbbapi, (updatedSearchPoint) => db.update({ userId: senderID}, updatedSearchPoint, {}))
         }); // end of loop
-      }) // end of find
-          // if (messagingEvent.message)           {receivedMessage(messagingEvent);
-          //   } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
-          //   } else if (messagingEvent.read || messagingEvent.delivery) {fbo.receivedMessageEvent(messagingEvent);
-          //   } else { console.log("Webhook received unknown messagingEvent: ", messagingEvent);
-          // }
+        }); // end of find
       }; //end of if
     }); // end of loop
     
@@ -117,138 +112,6 @@ function verifyRequestSignature(req, res, buf) {
     }
   }
 }
-
-///////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////**********************//////////////////////////////////
-///////////////////////////////**********************//////////////////////////////////
-///////////////////////////////**********************//////////////////////////////////
-////////////////////////////////********************///////////////////////////////////
-/////////////////////////////////******************////////////////////////////////////
-//////////////////////////////////****************/////////////////////////////////////
-
-
-
-
-/* Message Event
- *
- * This event is called when a message is sent to your page. The 'message' 
- * object format can vary depending on the kind of message that was received.
- * Read more at https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
- */
-function receivedMessage(event) {
-  var senderID = event.sender.id;
-  var recipientID = event.recipient.id;
-  var timeOfMessage = event.timestamp;
-  var message = event.message;
-  var messageId = message.mid;
-  var messageText = message.text;
-  var quickReply = message.quick_reply;
-  console.log("Received message for user %d and page %d at %d with message:",senderID, recipientID, timeOfMessage);
-  console.log(JSON.stringify(message));
-
-  let sp = new SearchPoint();
-  db.find({ userId: senderID}, function (err, user) {
-   sp.reload(user[0]);
-
-    // QUICK REPLAY HAS RETURNED THE STATE
-    if (quickReply) {
-      console.log("Quick reply for message %s with payload %s", messageId, quickReply.payload);
-      sp.state = quickReply.payload;
-      fbo.sendMessage(sp.askCity(senderID));
-      return;
-    }
-
-    // MESSAGE HAS RETURNED
-    let mText = messageText.toLowerCase().trim();
-    if (mText) {
-    
-      if(sp.name == 'WAIT') {
-        sp.name = mText;
-        sp.category = false;
-        fbo.sendMessage(sp.askLocation(senderID));
-      }
-      if(sp.category == 'WAIT'){
-        sp.category = mText;
-        sp.name = false;
-        fbo.sendMessage(sp.askLocation(senderID));
-      }
-      if(sp.zip == 'WAIT') {
-        sp.zip = mText;
-        sp.city = false;
-        sp.state = false;
-        fbo.showListOfBusiness(sp, bbbapi, (data) => fbo.sendMessage(data));
-      }
-      if(sp.city == 'WAIT') {
-        sp.city = mText;
-        sp.zip = false;
-        fbo.showListOfBusiness(sp, bbbapi, (data) => fbo.sendMessage(data));
-      }
-
-      switch (mText) {
-        case 'menu':
-          fbo.searchMenu(senderID);
-          break;
-        case 'hello':
-        case 'hi':
-          fbo.sendTextMessage(senderID, mText);
-          break;
-        case 'help':
-          fbo.sendTextMessage(senderID, 'There should be help message');
-          break;
-      }
-    }// message end
-  })
-
-    db.remove({ userId: senderID}, { multi: true });
-    db.insert(sp);
-  
-}
-
-
-// POSTBACK EVENT. This event is called when a postback is tapped on a Structured Message. 
-// Read more https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
-
-function receivedPostback(event) {
-
-  var senderID = event.sender.id;
-  var recipientID = event.recipient.id;
-  var timeOfPostback = event.timestamp;
-  var payload = event.postback.payload;
-  let sp = new SearchPoint();
-  console.log("Received postback for user %d and page %d with payload '%s' at %d", senderID, recipientID, payload, timeOfPostback);
-
-  db.find({ userId: senderID}, function (err, user) {
-     sp.reload(user[0]);
-  
-  ///// SEARCH BY ITEM
-  if (payload) {
-    switch (payload) {
-      case 'GET_START':
-          fbo.startConversation(senderID, function(greetings){
-            fbo.sendMessage(greetings);
-            fbo.searchMenu(senderID);
-          })
-          break;
-      case 'SEARCH_BY_NAME':
-          fbo.sendMessage(sp.askName(senderID));
-          break;
-      case 'SEARCH_BY_CATEGORY':
-          fbo.sendMessage(sp.askCategory(senderID));
-          break;
-      case 'LOCATION_STATE':
-          fbo.sendMessage(sp.askState(senderID));
-          break;
-      case 'LOCATION_ZIP':
-          fbo.sendMessage(sp.askZip(senderID));
-          break;
-  }}
-
-    db.remove({ userId: senderID}, { multi: true });
-    db.insert(sp);
-});
-
-};
-
 
 /////////////////////////////////////////////////////////////////////
 // START SERVER

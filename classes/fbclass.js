@@ -11,10 +11,10 @@ const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ? (process.e
 // Facebook class
 class FBoperations {
 
-  receivedMessageEvent (event, searchPoint, callback){
+  receivedMessageEvent (event, searchPoint, bbbapi, callback){
 
-    if (event.message)         {this.receivedMessage(event, searchPoint);
-    } else if (event.postback) {this.receivedPostback(event, searchPoint);
+    if (event.message)         {searchPoint = this.receivedMessage(event, searchPoint, bbbapi);
+    } else if (event.postback) {searchPoint = this.receivedPostback(event, searchPoint);
     } else if (event.read)     {this.receivedMessageRead(event);
     } else if (event.delivery) {this.receivedDeliveryConfirmation(event);
     } else { console.log("Webhook received unknown messagingEvent: ", event);
@@ -179,7 +179,7 @@ class FBoperations {
     return searchPoint;
   };
 
-  receivedMessage(event, searchPoint) {
+  receivedMessage(event, searchPoint, bbbapi) {
   var senderID = event.sender.id;
   var recipientID = event.recipient.id;
   var timeOfMessage = event.timestamp;
