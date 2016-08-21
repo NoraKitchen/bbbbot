@@ -130,7 +130,7 @@ class FBoperations {
   ////// SHOW RESPONCE FROM BBB API
   showListOfBusiness(searchPoint, bbbapi, callback) {
 
-    bbbapi.createList(sp, function(data){
+    bbbapi.createList(searchPoint, function(data){
       let messageData = {};
       if(!data) { 
           messageData = {
