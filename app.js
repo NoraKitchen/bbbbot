@@ -1,23 +1,35 @@
 'use strict';
 
-const 
-    bodyParser = require('body-parser'),
-    config = require('config'),
-    crypto = require('crypto'),
-    express = require('express'),
-    https = require('https'),
-    request = require('request');
-  
+const
+  bodyParser = require('body-parser'),
+  config = require('config'),
+  crypto = require('crypto'),
+  express = require('express'),
+  https = require('https'),
+  request = require('request');
+
 let app = express(),
-    SearchPoint = require('./classes/searchpoint'),
-    fbo = require('./classes/fbclass'),
-    bbbapi = require('./classes/bbbapi');
+  SearchPoint = require('./classes/searchpoint'),
+  fbo = require('./classes/fbclass'),
+  bbbapi = require('./classes/bbbapi'),
+  sessions = require('./classes/sessions'),
+  witActions = require('./classes/wit_app/wit-actions');
 
-let Datastore = require('nedb'),
-    db = new Datastore({ filename: 'data/users', autoload: true });
-    db.loadDatabase(err => console.log(" DB error :" + err));
+let Wit = null;
+try {
+  // if running from repo
+  Wit = require('../').Wit;
+} catch (e) {
+  Wit = require('node-wit').Wit;
+}
 
-app.set('port', process.env.PORT || 5000);
+const currentSessions = {};
+
+// let Datastore = require('nedb'),
+//     db = new Datastore({ filename: 'data/users', autoload: true });
+//     db.loadDatabase(err => console.log(" DB error :" + err));
+
+app.set('port', process.env.PORT || 8080);
 app.use(bodyParser.json({ verify: verifyRequestSignature }));
 app.use(express.static('public'));
 
@@ -36,24 +48,26 @@ const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ? (process.e
 // URL where the app is running (include protocol). Used to point to scripts and assets located at this address. 
 const SERVER_URL = (process.env.SERVER_URL) ? (process.env.SERVER_URL) : config.get('serverURL');
 
+const WIT_TOKEN = config.get("witToken");
+
 if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL)) {
   console.error("Missing config values");
   process.exit(1);
 };
 
-//WELCOME SCREEN BUTTON
-fbo.welcomeButton(PAGE_ACCESS_TOKEN);
+// //WELCOME SCREEN BUTTON
+// fbo.welcomeButton(PAGE_ACCESS_TOKEN);
 
 // SETUP WEBHOOK
-app.get('/webhook', function(req, res) {
+app.get('/webhook', function (req, res) {
   if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === VALIDATION_TOKEN) {
     console.log("Validating webhook");
     res.status(200).send(req.query['hub.challenge']);
-    } else {
+  } else {
     console.error("Failed validation. Make sure the validation tokens match.");
-    res.sendStatus(403);          
-    };
-  }
+    res.sendStatus(403);
+  };
+}
 );
 
 /*All callbacks for Messenger are POST-ed. They will be sent to the same webhook. 
@@ -64,27 +78,42 @@ app.post('/webhook', function (req, res) {
 
   // Make sure this is a page subscription
   if (data.object == 'page') {
-      data.entry.forEach(function(pageEntry) {
+    data.entry.forEach(function (pageEntry) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
       var senderID = pageEntry.messaging[0].sender.id;
-      if (senderID != pageID){
-        db.find({ userId: senderID}, function (err, user) {
-          let sp = new SearchPoint();
-          if( user.length == 0) {
-            sp.userId = senderID;
-            db.insert(sp);
-            } else { sp.reload(user[0]);
-          };
-        
-        // Iterate over each messaging event
-        pageEntry.messaging.forEach(function(messagingEvent) {
-          fbo.receivedMessageEvent(messagingEvent, sp, bbbapi, (updatedSearchPoint) => db.update({ userId: senderID}, updatedSearchPoint, {}))
-        }); // end of loop
-        }); // end of find
-      }; //end of if
-    }); // end of loop
-    
+
+      // if (senderID != pageID){
+      //what is this pageID about?
+      var sessionID = sessions.findOrCreateSession(senderID, currentSessions);
+      // };
+
+      // Iterate over each messaging event
+      pageEntry.messaging.forEach(function (messagingEvent) {
+        fbo.receivedMessageEvent(messagingEvent, currentSessions[sessionID], bbbapi, wit, (updatedContext) => currentSessions[sessionID.context = updatedContext])
+      });
+    });
+
+
+    // if (senderID != pageID){
+    //   db.find({ userId: senderID}, function (err, user) {
+    //     let sp = new SearchPoint();
+    //     if( user.length == 0) {
+    //       sp.userId = senderID;
+    //       db.insert(sp);
+    //       } else { sp.reload(user[0]);
+    //     };
+
+    //   // Iterate over each messaging event
+    //   pageEntry.messaging.forEach(function(messagingEvent) {
+    //     fbo.receivedMessageEvent(messagingEvent, sp, bbbapi, (updatedSearchPoint) => db.update({ userId: senderID}, updatedSearchPoint, {}))
+    //   }); // end of loop
+    //   }); // end of find
+    // }; //end of if
+
+
+    // }); // end of loop
+
     res.sendStatus(200);
   }
 });
@@ -113,9 +142,11 @@ function verifyRequestSignature(req, res, buf) {
   }
 }
 
+var wit = new Wit({ accessToken: WIT_TOKEN, actions: witActions.actions });
+
 /////////////////////////////////////////////////////////////////////
 // START SERVER
-app.listen(app.get('port'), function() {
+app.listen(app.get('port'), function () {
   console.log('Facebook bot app is running on port', app.get('port'));
 });
 

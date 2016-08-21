@@ -19,6 +19,8 @@
     "config": "^1.20.4",
     "express": "^4.13.4",
     "nedb": "^1.8.0",
+    "node-wit": "^4.1.0",
+    "parse-address": "0.0.5",
     "request": "^2.72.0"
   },
   "engines": {
