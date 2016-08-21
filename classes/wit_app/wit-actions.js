@@ -39,14 +39,15 @@ var actions = {
         // }
 
         if (recipientId) {
-            var response = {
+            var reply = {
                 recipient: { id: recipientId },
-                message: { text: response.message }
+                message: { text: response.text }
+                // message: { text: "test, ran through wit"}
             }
-            return fbm.sendMessage(response)
-                // .then(function () {
-                //     return null;
-                // }) //.catch here 
+            return fbm.sendMessage(reply)
+                .then(function () {
+                    return null;
+                }) //.catch here 
             // return new Promise(function (resolve, reject) {
             //     console.log('user said...', request.text);
             //     console.log('sending...', JSON.stringify(response));
