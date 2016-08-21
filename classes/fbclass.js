@@ -11,6 +11,17 @@ const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ? (process.e
 // Facebook class
 class FBoperations {
 
+  receivedMessageEvent (event, searchPoint, callback){
+
+    if (event.message)         {this.receivedMessage(event, searchPoint);
+    } else if (event.postback) {this.receivedPostback(event, searchPoint);
+    } else if (event.read)     {this.receivedMessageRead(event);
+    } else if (event.delivery) {this.receivedDeliveryConfirmation(event);
+    } else { console.log("Webhook received unknown messagingEvent: ", event);
+    }
+    callback(searchPoint)
+  };
+
   receivedDeliveryConfirmation(event) {
     let delivery = event.delivery;
     let messageIDs = delivery.mids;
@@ -117,27 +128,121 @@ class FBoperations {
   }
 
   ////// SHOW RESPONCE FROM BBB API
-  showListOfBusiness(sp, bbbapi, callback) {
+  showListOfBusiness(searchPoint, bbbapi, callback) {
 
     bbbapi.createList(sp, function(data){
       let messageData = {};
       if(!data) { 
           messageData = {
-            recipient: { id: sp.userId },
+            recipient: { id: searchPoint.userId },
             message:   { text: " Sorry nothing. Try again please.", metadata: "TEXT" }
           };
         } else {
           messageData = {
-            recipient: { id: sp.userId },
+            recipient: { id: searchPoint.userId },
             message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
           };
-          console.log("Send list of business to sender " + sp.userId);
+          console.log("Send list of business to sender " + searchPoint.userId);
         };
       callback(messageData);
     });
+  };
 
-};
- 
+  receivedPostback(event, searchPoint) {
+
+    var senderID = event.sender.id;
+    var recipientID = event.recipient.id;
+    var timeOfPostback = event.timestamp;
+    var payload = event.postback.payload;
+    console.log("Received postback for user %d and page %d with payload '%s' at %d", senderID, recipientID, payload, timeOfPostback);
+
+    switch (payload) {
+      case 'GET_START':
+            this.startConversation(senderID, function(greetings){
+              this.sendMessage(greetings);
+              this.searchMenu(senderID);
+            })
+            break;
+      case 'SEARCH_BY_NAME':
+            this.sendMessage(searchPoint.askName(senderID));
+            break;
+        case 'SEARCH_BY_CATEGORY':
+            this.sendMessage(searchPoint.askCategory(senderID));
+            break;
+        case 'LOCATION_STATE':
+            this.sendMessage(searchPoint.askState(senderID));
+            break;
+        case 'LOCATION_ZIP':
+            this.sendMessage(searchPoint.askZip(senderID));
+            break;
+    }
+    return searchPoint;
+  };
+
+  receivedMessage(event, searchPoint) {
+  var senderID = event.sender.id;
+  var recipientID = event.recipient.id;
+  var timeOfMessage = event.timestamp;
+  var message = event.message;
+  var messageId = message.mid;
+  var messageText = message.text;
+  var quickReply = message.quick_reply;
+  console.log("Received message for user %d and page %d at %d with message:",senderID, recipientID, timeOfMessage);
+  console.log(JSON.stringify(message));
+
+    // QUICK REPLAY HAS RETURNED THE STATE
+    if (quickReply) {
+      console.log("Quick reply for message %s with payload %s", messageId, quickReply.payload);
+      searchPoint.state = quickReply.payload;
+      this.sendMessage(searchPoint.askCity(senderID));
+      return;
+    }
+
+    // MESSAGE HAS RETURNED
+    let mText = messageText.toLowerCase().trim();
+    if (mText) {
+    
+      if(searchPoint.name == 'WAIT') {
+        searchPoint.name = mText;
+        searchPoint.category = false;
+        this.sendMessage(searchPoint.askLocation(senderID));
+      }
+      if(searchPoint.category == 'WAIT'){
+        searchPoint.category = mText;
+        searchPoint.name = false;
+        this.sendMessage(searchPoint.askLocation(senderID));
+      }
+      if(searchPoint.zip == 'WAIT') {
+        searchPoint.zip = mText;
+        searchPoint.city = false;
+        searchPoint.state = false;
+        this.showListOfBusiness(sp, bbbapi, (data) => this.sendMessage(data));
+      }
+      if(searchPoint.city == 'WAIT') {
+        searchPoint.city = mText;
+        searchPoint.zip = false;
+        this.showListOfBusiness(sp, bbbapi, (data) => this.sendMessage(data));
+      }
+
+      switch (mText) {
+        case 'menu':
+          this.searchMenu(senderID);
+          break;
+        case 'hello':
+        case 'hi':
+          this.sendTextMessage(senderID, mText);
+          break;
+        case 'help':
+          this.sendTextMessage(senderID, 'There should be help message');
+          break;
+      }
+    }// message end
+
+    return searchPoint;
+  }
+
+
+
 
 
 

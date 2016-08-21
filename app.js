@@ -68,25 +68,27 @@ app.post('/webhook', function (req, res) {
       var pageID = pageEntry.id;
       var timeOfEvent = pageEntry.time;
       var senderID = pageEntry.messaging[0].sender.id;
-      if (senderID != '1130241563714158'){
+      if (senderID != pageID){
         db.find({ userId: senderID}, function (err, user) {
-         if( user.length == 0) {
-            let sp = new SearchPoint();
+          let sp = new SearchPoint();
+          if( user.length == 0) {
             sp.userId = senderID;
             db.insert(sp);
-        }
+            } else { sp.reload(user[0]);
+          };
+        
         // Iterate over each messaging event
         pageEntry.messaging.forEach(function(messagingEvent) {
-          if (messagingEvent.message)           {receivedMessage(messagingEvent);
-            } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
-            } else if (messagingEvent.read)     {fbo.receivedMessageRead(messagingEvent);
-            } else if (messagingEvent.delivery) {fbo.receivedDeliveryConfirmation(messagingEvent);
-            } else { console.log("Webhook received unknown messagingEvent: ", messagingEvent);
-          }
-        });
-        });// end of db.find
-      };
-    });
+          fbo.receivedMessageEvent(messagingEvent, sp, (updatedSearchPoint) => db.update({ userId: senderID}, updatedSearchPoint))
+        }); // end of loop
+      }) // end of find
+          // if (messagingEvent.message)           {receivedMessage(messagingEvent);
+          //   } else if (messagingEvent.postback) {receivedPostback(messagingEvent);
+          //   } else if (messagingEvent.read || messagingEvent.delivery) {fbo.receivedMessageEvent(messagingEvent);
+          //   } else { console.log("Webhook received unknown messagingEvent: ", messagingEvent);
+          // }
+      }; //end of if
+    }); // end of loop
     
     res.sendStatus(200);
   }
@@ -174,17 +176,14 @@ function receivedMessage(event) {
         sp.zip = mText;
         sp.city = false;
         sp.state = false;
-        fbo.showListOfBusiness(sp, bbbapi, function(data){
-          fbo.sendMessage(data);
-        });
+        fbo.showListOfBusiness(sp, bbbapi, (data) => fbo.sendMessage(data));
       }
       if(sp.city == 'WAIT') {
         sp.city = mText;
         sp.zip = false;
-        fbo.showListOfBusiness(sp, bbbapi, function(data){
-          fbo.sendMessage(data);
-        });
+        fbo.showListOfBusiness(sp, bbbapi, (data) => fbo.sendMessage(data));
       }
+
       switch (mText) {
         case 'menu':
           fbo.searchMenu(senderID);
@@ -250,26 +249,6 @@ function receivedPostback(event) {
 
 };
 
-
-// ////// SHOW RESPONCE FROM BBB API
-// function showListOfBusiness(sp) {
-
-//   let newElements = [];
-//   bbbapi.createList(sp, API_TOKEN, function(data){
-
-//     if(!data) { 
-//       fbo.negativeResult(sp.userId)
-//       } else {
-//         let messageData = {
-//           recipient: { id: sp.userId },
-//           message: { attachment: { type: "template", payload: { template_type: "generic", elements: data }}}
-//         };  
-//         fbo.sendMessage(messageData);
-//         console.log("Send list of business to sender " + sp.userId);
-//   }});
-//   db.remove({ userId: sp.userId}, { multi: true });
-// };
- 
 
 /////////////////////////////////////////////////////////////////////
 // START SERVER
