@@ -216,12 +216,12 @@ class FBoperations {
         searchPoint.zip = mText;
         searchPoint.city = false;
         searchPoint.state = false;
-        this.showListOfBusiness(sp, bbbapi, (data) => this.sendMessage(data));
+        this.showListOfBusiness(searchPoint, bbbapi, (data) => this.sendMessage(data));
       }
       if(searchPoint.city == 'WAIT') {
         searchPoint.city = mText;
         searchPoint.zip = false;
-        this.showListOfBusiness(sp, bbbapi, (data) => this.sendMessage(data));
+        this.showListOfBusiness(searchPoint, bbbapi, (data) => this.sendMessage(data));
       }
 
       switch (mText) {
