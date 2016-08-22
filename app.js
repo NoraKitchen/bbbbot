@@ -85,12 +85,29 @@ app.post('/webhook', function (req, res) {
 
       // if (senderID != pageID){
       //what is this pageID about?
-      var sessionID = sessions.findOrCreateSession(senderID, currentSessions);
       // };
+      var sessionID = sessions.findOrCreateSession(senderID, currentSessions);
 
       // Iterate over each messaging event
       pageEntry.messaging.forEach(function (messagingEvent) {
-        fbo.receivedMessageEvent(messagingEvent, currentSessions[sessionID], bbbapi, wit, (updatedContext) => currentSessions[sessionID.context = updatedContext])
+        // fbo.receivedMessageEvent(messagingEvent, currentSessions[sessionID], bbbapi, (updatedContext) => currentSessions[sessionID.context = updatedContext])
+        fbo.receivedMessageEvent(messagingEvent, currentSessions[sessionID], bbbapi, function (updatedContext) {
+          console.log("sending updated context to wit:");
+          console.log(updatedContext);
+          wit.runActions(senderID, updatedContext.userInput, updatedContext).then(function (witUpdatedContext) {
+            console.log("Wit returned context:")
+            console.log(witUpdatedContext);
+            currentSessions[sessionID].context = witUpdatedContext;
+
+            if (currentSessions[sessionId].context.endSession) {
+              //search returned no results, ending session to restart search
+              console.log("restarting session")
+              delete currentSessions[sessionId];
+            }
+          });
+        })
+
+
       });
     });
 

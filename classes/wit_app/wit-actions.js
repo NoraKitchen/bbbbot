@@ -47,15 +47,18 @@ var actions = {
             return fbm.sendMessage(reply)
                 .then(function () {
                     return null;
-                }) //.catch here 
-            // return new Promise(function (resolve, reject) {
-            //     console.log('user said...', request.text);
-            //     console.log('sending...', JSON.stringify(response));
-            //     return resolve();
-            // });
+                }).catch(function (e) {
+                    return new Promise(function (resolve, reject) {
+                        console.log('user said...', request.text);
+                        console.log('sending...', JSON.stringify(response));
+                        return resolve();
+                    })
+                });
         }
+
     },
     collectNameOrCat({ context, entities }) {
+        console.log("Collecting business name or category")
         var collectingValue = context.findByCategory ? "category" : "businessName";
 
         if (context["POSSIBLE" + collectingValue.toUpperCase()]) {

@@ -11,12 +11,19 @@ const PAGE_ACCESS_TOKEN = (process.env.MESSENGER_PAGE_ACCESS_TOKEN) ? (process.e
 // Facebook class
 class FBoperations {
 
-  receivedMessageEvent(event, session, bbbapi, wit, callback) {
+  // receivedMessageEvent(event, session, bbbapi, wit, callback) {
+  receivedMessageEvent(event, session, bbbapi, callback) {
 
     if (event.message) {
-      let context = this.receivedMessage(event, session, wit);
+      // let context = this.receivedMessage(event, session, wit);
+      // let context = this.receivedMessage(event, session);
+
+      //text message replies are entirely handled by wit
+      var context = session.context;
+      context.userInput = event.message.text;
     } else if (event.postback) {
-      let context = this.receivedPostback(event, session, wit);
+      // let context = this.receivedPostback(event, session, wit);
+      var context = this.receivedPostback(event, session);
     } else if (event.read) {
       this.receivedMessageRead(event);
     } else if (event.delivery) {
@@ -24,7 +31,10 @@ class FBoperations {
     } else {
       console.log("Webhook received unknown messagingEvent: ", event);
     }
-    // callback(context)
+
+    if (context) {
+      callback(context)
+    }
   };
 
   receivedDeliveryConfirmation(event) {
@@ -66,26 +76,44 @@ class FBoperations {
 
   // Send message to Facebook API
   sendMessage(messageData) {
-    request({
-      uri: 'https://graph.facebook.com/v2.7/me/messages',
-      qs: { access_token: PAGE_ACCESS_TOKEN },
+
+    var body = JSON.stringify(messageData)
+    //uses fetch instead of request like below
+    var qs = 'access_token=' + encodeURIComponent(PAGE_ACCESS_TOKEN);
+    return fetch('https://graph.facebook.com/me/messages?' + qs, {
       method: 'POST',
-      json: messageData
-
-    }, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
-        let recipientId = body.recipient_id;
-        let messageId = body.message_id;
-
-        if (messageId) {
-          console.log("Successfully sent message with id %s to recipient %s", messageId, recipientId);
-        } else {
-          console.log("Successfully called Send API for recipient %s", recipientId);
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
+      .then(rsp => rsp.json())
+      .then(json => {
+        if (json.error && json.error.message) {
+          throw new Error(json.error.message);
         }
-      } else {
-        console.error(response.error);
-      };
-    });
+        return json;
+      });
+
+    //this was serge's original code, for some reson not working with wit
+    // request({
+    //   uri: 'https://graph.facebook.com/v2.7/me/messages',
+    //   qs: { access_token: PAGE_ACCESS_TOKEN },
+    //   method: 'POST',
+    //   json: messageData
+
+    // }, function (error, response, body) {
+    //   if (!error && response.statusCode == 200) {
+    //     let recipientId = body.recipient_id;
+    //     let messageId = body.message_id;
+
+    //     if (messageId) {
+    //       console.log("Successfully sent message with id %s to recipient %s", messageId, recipientId);
+    //     } else {
+    //       console.log("Successfully called Send API for recipient %s", recipientId);
+    //     }
+    //   } else {
+    //     console.error(response.error);
+    //   };
+    // });
   };
 
   // Start topin for conversation
@@ -163,7 +191,7 @@ class FBoperations {
     });
   };
 
-  receivedPostback(event, session, wit) {
+  receivedPostback(event, session) {
 
     var senderID = event.sender.id;
     var recipientID = event.recipient.id;
@@ -173,26 +201,24 @@ class FBoperations {
 
     switch (payload) {
       case 'GET_START':
-      var fb = this; //to fix this/scope issue
+        var self = this;
         this.startConversation(senderID, function (greetings) {
-          fb.sendMessage(greetings);
-          fb.searchMenu(senderID);
+          self.sendMessage(greetings);
+          self.searchMenu(senderID);
         })
         break;
       case 'SEARCH_BY_NAME':
         // this.sendMessage(searchPoint.askName(senderID));
-        var messageText = "find business by name"
         session.context.findByName = true;
+        session.context.userInput = "find business by name"
         delete session.context.findByCategory;
-        wit.runActions(senderID, messageText, session.context).then(function (context) { return context });
-        break;
+        return (session.context);
       case 'SEARCH_BY_CATEGORY':
         // this.sendMessage(searchPoint.askCategory(senderID));
-        var messageText = "find business by category"
         session.context.findByCategory = true;
+        session.context.userInput = "find business by category";
         delete session.context.findByName;
-        wit.runActions(senderID, messageText, session.context).then(function (context) { return context });
-        break;
+        return (session.context);
       // case 'LOCATION_STATE':
       //     this.sendMessage(searchPoint.askState(senderID));
       //     break;
@@ -200,74 +226,72 @@ class FBoperations {
       //     this.sendMessage(searchPoint.askZip(senderID));
       //     break;
     }
-    console.log(session.context)
-    return (session.context);
-    // return wit.runActions(senderID, messageText, session).then(function (context) { return context });
+    return
   };
 
-  receivedMessage(event, session, wit) {
-    var senderID = event.sender.id;
-    var recipientID = event.recipient.id;
-    var timeOfMessage = event.timestamp;
-    var message = event.message;
-    var messageId = message.mid;
-    var messageText = message.text;
-    var quickReply = message.quick_reply;
-    console.log("Received message for user %d and page %d at %d with message:", senderID, recipientID, timeOfMessage);
-    console.log(JSON.stringify(message));
+  // receivedMessage(event, session) {
+  //   var senderID = event.sender.id;
+  //   var recipientID = event.recipient.id;
+  //   var timeOfMessage = event.timestamp;
+  //   var message = event.message;
+  //   var messageId = message.mid;
+  //   var messageText = message.text;
+  //   var quickReply = message.quick_reply;
+  //   console.log("Received message for user %d and page %d at %d with message:", senderID, recipientID, timeOfMessage);
+  //   console.log(JSON.stringify(message));
 
-    wit.runActions(senderID, messageText, session.context).then(function (context) { return context });
+  //   // wit.runActions(senderID, messageText, session.context).then(function (context) { return context });
 
-    // // QUICK REPLAY HAS RETURNED THE STATE
-    // if (quickReply) {
-    //   console.log("Quick reply for message %s with payload %s", messageId, quickReply.payload);
-    //   searchPoint.state = quickReply.payload;
-    //   this.sendMessage(searchPoint.askCity(senderID));
-    //   return;
-    // }
+  //   // // QUICK REPLAY HAS RETURNED THE STATE
+  //   // if (quickReply) {
+  //   //   console.log("Quick reply for message %s with payload %s", messageId, quickReply.payload);
+  //   //   searchPoint.state = quickReply.payload;
+  //   //   this.sendMessage(searchPoint.askCity(senderID));
+  //   //   return;
+  //   // }
 
-    // // MESSAGE HAS RETURNED
-    // let mText = messageText.toLowerCase().trim();
-    // if (mText) {
+  //   // // MESSAGE HAS RETURNED
+  //   // let mText = messageText.toLowerCase().trim();
+  //   // if (mText) {
 
-    //   if(searchPoint.name == 'WAIT') {
-    //     searchPoint.name = mText;
-    //     searchPoint.category = false;
-    //     this.sendMessage(searchPoint.askLocation(senderID));
-    //   }
-    //   if(searchPoint.category == 'WAIT'){
-    //     searchPoint.category = mText;
-    //     searchPoint.name = false;
-    //     this.sendMessage(searchPoint.askLocation(senderID));
-    //   }
-    //   if(searchPoint.zip == 'WAIT') {
-    //     searchPoint.zip = mText;
-    //     searchPoint.city = false;
-    //     searchPoint.state = false;
-    //     this.showListOfBusiness(searchPoint, bbbapi, (data) => this.sendMessage(data));
-    //   }
-    //   if(searchPoint.city == 'WAIT') {
-    //     searchPoint.city = mText;
-    //     searchPoint.zip = false;
-    //     this.showListOfBusiness(searchPoint, bbbapi, (data) => this.sendMessage(data));
-    //   }
+  //   //   if(searchPoint.name == 'WAIT') {
+  //   //     searchPoint.name = mText;
+  //   //     searchPoint.category = false;
+  //   //     this.sendMessage(searchPoint.askLocation(senderID));
+  //   //   }
+  //   //   if(searchPoint.category == 'WAIT'){
+  //   //     searchPoint.category = mText;
+  //   //     searchPoint.name = false;
+  //   //     this.sendMessage(searchPoint.askLocation(senderID));
+  //   //   }
+  //   //   if(searchPoint.zip == 'WAIT') {
+  //   //     searchPoint.zip = mText;
+  //   //     searchPoint.city = false;
+  //   //     searchPoint.state = false;
+  //   //     this.showListOfBusiness(searchPoint, bbbapi, (data) => this.sendMessage(data));
+  //   //   }
+  //   //   if(searchPoint.city == 'WAIT') {
+  //   //     searchPoint.city = mText;
+  //   //     searchPoint.zip = false;
+  //   //     this.showListOfBusiness(searchPoint, bbbapi, (data) => this.sendMessage(data));
+  //   //   }
 
-    //   switch (mText) {
-    //     case 'menu':
-    //       this.searchMenu(senderID);
-    //       break;
-    //     case 'hello':
-    //     case 'hi':
-    //       this.sendTextMessage(senderID, mText);
-    //       break;
-    //     case 'help':
-    //       this.sendTextMessage(senderID, 'There should be help message');
-    //       break;
-    //   }
-    // }// message end
+  //   //   switch (mText) {
+  //   //     case 'menu':
+  //   //       this.searchMenu(senderID);
+  //   //       break;
+  //   //     case 'hello':
+  //   //     case 'hi':
+  //   //       this.sendTextMessage(senderID, mText);
+  //   //       break;
+  //   //     case 'help':
+  //   //       this.sendTextMessage(senderID, 'There should be help message');
+  //   //       break;
+  //   //   }
+  //   // }// message end
 
-    // return searchPoint;
-  }
+  //   // return searchPoint;
+  // }
 
 
 
