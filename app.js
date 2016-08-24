@@ -23,7 +23,7 @@ try {
   Wit = require('node-wit').Wit;
 }
 
-const currentSessions = {};
+let currentSessions = {};
 
 // let Datastore = require('nedb'),
 //     db = new Datastore({ filename: 'data/users', autoload: true });
@@ -99,10 +99,10 @@ app.post('/webhook', function (req, res) {
             console.log(witUpdatedContext);
             currentSessions[sessionID].context = witUpdatedContext;
 
-            if (currentSessions[sessionId].context.endSession) {
+            if (currentSessions[sessionID].context.endSession) {
               //search returned no results, ending session to restart search
               console.log("restarting session")
-              delete currentSessions[sessionId];
+              delete currentSessions[sessionID];
             }
           });
         })

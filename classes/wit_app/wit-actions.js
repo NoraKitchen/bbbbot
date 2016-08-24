@@ -125,10 +125,10 @@ var actions = {
 
         if (context.detectedCity && context.detectedState) {
             console.log("City and state identified.")
-            delete context.locationNotFound;
+            delete context.locationNotDetected;
         } else {
             console.log("Unable to auto-detect location.")
-            context.locationNotFound = true;
+            context.locationNotDetected = true;
         }
         return Promise.resolve(context);
     },
